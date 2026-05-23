@@ -41,15 +41,13 @@ const usuarioSchema = new mongoose.Schema(
   }
 );
 
-usuarioSchema.pre("save", async function (next) {
+usuarioSchema.pre("save", async function () {
   if (!this.isModified("contrasenia")) {
-    return next();
+    return;
   }
 
   const salt = await bcrypt.genSalt(10);
   this.contrasenia = await bcrypt.hash(this.contrasenia, salt);
-
-  next();
 });
 
 usuarioSchema.methods.compararContrasenia = async function (contraseniaIngresada) {

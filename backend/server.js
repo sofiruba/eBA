@@ -3,13 +3,13 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 
+const usuarioRoutes = require("./routes/usuario.routes");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware para leer JSON
 app.use(express.json());
 
-// Conexión a MongoDB Atlas
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
@@ -19,14 +19,12 @@ mongoose
     console.error("Error conectando a MongoDB:", error.message);
   });
 
-// Ruta principal para probar
 app.get("/", (req, res) => {
   res.json({
     message: "API de eBA funcionando con MongoDB",
   });
 });
 
-// Ruta para probar conexión con Mongo
 app.get("/test-mongo", async (req, res) => {
   try {
     const estado = mongoose.connection.readyState;
@@ -45,23 +43,16 @@ app.get("/test-mongo", async (req, res) => {
   }
 });
 
-// Acá después vamos a importar rutas
-// const userRoutes = require("./routes/user.routes");
-// const eventRoutes = require("./routes/events.routes");
-// const attendanceRoutes = require("./routes/attendance.routes");
+// RUTAS
+app.use("/api/usuarios", usuarioRoutes);
 
-// app.use("/api/users", userRoutes);
-// app.use("/api/events", eventRoutes);
-// app.use("/api/attendances", attendanceRoutes);
-
-// Ruta no encontrada
+// 404 SIEMPRE AL FINAL
 app.use((req, res) => {
   res.status(404).json({
     error: "Ruta no encontrada",
   });
 });
 
-// Iniciar servidor
 app.listen(PORT, () => {
   console.log(`Servidor Express escuchando en http://localhost:${PORT}`);
 });
