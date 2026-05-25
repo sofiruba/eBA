@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   View,
   Text,
@@ -8,8 +9,71 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { EyeOff } from "lucide-react-native";
+import { API_URL } from "../config/api";
 
 export default function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [contrasenia, setContrasenia] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email.trim()) {
+      alert("Ingresá tu email.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email.trim())) {
+      alert("Ingresá un email válido.");
+      return;
+    }
+
+    if (!contrasenia.trim()) {
+      alert("Ingresá tu contraseña.");
+      return;
+    }
+
+    const usuarioLogin = {
+      email: email.trim().toLowerCase(),
+      contrasenia,
+    };
+
+    console.log("Intentando login:", usuarioLogin);
+    console.log("URL:", `${API_URL}/api/usuarios/login`);
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(`${API_URL}/api/usuarios/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(usuarioLogin),
+      });
+
+      const data = await response.json();
+
+      console.log("Respuesta login:", data);
+
+      if (!response.ok) {
+        alert(data.message || data.error || "Email o contraseña incorrectos.");
+        return;
+      }
+
+      alert("Inicio de sesión exitoso.");
+      router.replace("/home" as any);
+    } catch (error) {
+      console.log("Error al conectar con backend:", error);
+      alert(
+        "No se pudo conectar con el servidor. Revisá que el backend esté prendido."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <View style={styles.content}>
@@ -27,6 +91,10 @@ export default function LoginScreen() {
           placeholder="Correo electrónico"
           placeholderTextColor="#A8A5B3"
           style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
         />
 
         <View style={styles.passwordBox}>
@@ -35,6 +103,8 @@ export default function LoginScreen() {
             placeholderTextColor="#A8A5B3"
             secureTextEntry
             style={styles.passwordInput}
+            value={contrasenia}
+            onChangeText={setContrasenia}
           />
           <EyeOff size={18} color="#A8A5B3" />
         </View>
@@ -44,15 +114,21 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => router.replace("/home" as any)}
+          style={[styles.primaryButton, loading && styles.disabledButton]}
+          onPress={handleLogin}
+          disabled={loading}
+          activeOpacity={0.85}
         >
-          <Text style={styles.primaryButtonText}>Iniciar sesión</Text>
+          <Text style={styles.primaryButtonText}>
+            {loading ? "Ingresando..." : "Iniciar sesión"}
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.registerRow}>
           <Text style={styles.smallText}>¿No tenés cuenta? </Text>
-          <TouchableOpacity onPress={() => router.push("/register" as any)}>
+          <TouchableOpacity
+            onPress={() => router.push("/register-interests" as any)}
+          >
             <Text style={styles.registerLink}>Registrate</Text>
           </TouchableOpacity>
         </View>
@@ -146,6 +222,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 18,
   },
+  disabledButton: {
+    opacity: 0.65,
+  },
   primaryButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
@@ -177,7 +256,6 @@ const styles = StyleSheet.create({
   },
   socialRow: {
     flexDirection: "row",
-    gap: 12,
   },
   socialButton: {
     width: 120,
@@ -187,6 +265,7 @@ const styles = StyleSheet.create({
     borderColor: "#D8D5E2",
     alignItems: "center",
     justifyContent: "center",
+    marginHorizontal: 6,
   },
   socialText: {
     color: "#9A98A6",
