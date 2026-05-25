@@ -1,13 +1,13 @@
 import { View, Text, StyleSheet } from "react-native";
 import BottomNav from "../components/BottomNav";
 
-export default function ExploreScreen() {
+export default function FavoritesScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.content}>
-        <Text style={styles.title}>Explorar</Text>
+        <Text style={styles.title}>Favoritos</Text>
         <Text style={styles.subtitle}>
-          Aca vas a poder buscar eventos por nombre, fecha o ubicación. Por ahora esta funcionalidad no está implementada, pero pronto vas a poder encontrar el evento que quieras con esta barra de búsqueda.
+          Acá van a aparecer los eventos que guardes para ver más tarde.
         </Text>
       </View>
 

@@ -1,13 +1,13 @@
 import { View, Text, StyleSheet } from "react-native";
 import BottomNav from "../components/BottomNav";
 
-export default function ExploreScreen() {
+export default function ConnectionsScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.content}>
-        <Text style={styles.title}>Explorar</Text>
+        <Text style={styles.title}>Conexiones</Text>
         <Text style={styles.subtitle}>
-          Aca vas a poder buscar eventos por nombre, fecha o ubicación. Por ahora esta funcionalidad no está implementada, pero pronto vas a poder encontrar el evento que quieras con esta barra de búsqueda.
+          Acá vas a poder ver tus conexiones con otros usuarios, como amigos o personas que te siguen. Por ahora esta funcionalidad no está implementada, pero pronto vas a poder interactuar con otros usuarios y compartir tus eventos favoritos.
         </Text>
       </View>
 

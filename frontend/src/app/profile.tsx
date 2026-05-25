@@ -1,13 +1,13 @@
 import { View, Text, StyleSheet } from "react-native";
 import BottomNav from "../components/BottomNav";
 
-export default function ExploreScreen() {
+export default function ProfileScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.content}>
-        <Text style={styles.title}>Explorar</Text>
+        <Text style={styles.title}>Perfil</Text>
         <Text style={styles.subtitle}>
-          Aca vas a poder buscar eventos por nombre, fecha o ubicación. Por ahora esta funcionalidad no está implementada, pero pronto vas a poder encontrar el evento que quieras con esta barra de búsqueda.
+          Acá mas pronto vas a poder ver y editar tu información personal, tus intereses y tus eventos guardados.
         </Text>
       </View>
 
