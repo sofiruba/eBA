@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { EyeOff } from "lucide-react-native";
@@ -15,9 +14,15 @@ import { EyeOff } from "lucide-react-native";
 export default function RegisterScreen() {
   const params = useLocalSearchParams();
 
-  const intereses = params.intereses
-    ? JSON.parse(params.intereses as string)
-    : [];
+  let intereses: string[] = [];
+
+  try {
+    intereses = params.intereses
+      ? JSON.parse(params.intereses as string)
+      : [];
+  } catch (error) {
+    intereses = [];
+  }
 
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
@@ -30,17 +35,101 @@ export default function RegisterScreen() {
   const [fotoPerfil, setFotoPerfil] = useState("");
 
   const handleRegister = () => {
+    console.log("TOQUÉ CREAR CUENTA");
+
+    if (intereses.length === 0) {
+      console.log("No hay intereses");
+      alert("Tenés que seleccionar al menos un interés.");
+      return;
+    }
+
+    if (!nombre.trim()) {
+      console.log("Falta nombre");
+      alert("Ingresá tu nombre.");
+      return;
+    }
+
+    if (!email.trim()) {
+      console.log("Falta email");
+      alert("Ingresá tu email.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email.trim())) {
+      console.log("Email inválido");
+      alert("Ingresá un email válido.");
+      return;
+    }
+
+    if (!contrasenia.trim()) {
+      console.log("Falta contraseña");
+      alert("Ingresá una contraseña.");
+      return;
+    }
+
+    if (contrasenia.length < 6) {
+      console.log("Contraseña corta");
+      alert("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    if (!edad.trim()) {
+      console.log("Falta edad");
+      alert("Ingresá tu edad.");
+      return;
+    }
+
+    const edadNumerica = Number(edad);
+
+    if (isNaN(edadNumerica) || edadNumerica < 13 || edadNumerica > 100) {
+      console.log("Edad inválida");
+      alert("Ingresá una edad válida.");
+      return;
+    }
+
+    if (!ciudad.trim()) {
+      console.log("Falta ciudad");
+      alert("Ingresá tu ciudad.");
+      return;
+    }
+
+    if (!pais.trim()) {
+      console.log("Falta país");
+      alert("Ingresá tu país.");
+      return;
+    }
+
+    if (!bio.trim()) {
+      console.log("Falta bio");
+      alert("Ingresá una breve bio.");
+      return;
+    }
+
+    if (!instagram.trim()) {
+      console.log("Falta Instagram");
+      alert("Ingresá tu Instagram.");
+      return;
+    }
+
+    if (!instagram.trim().startsWith("@")) {
+      console.log("Instagram inválido");
+      alert("El Instagram debe empezar con @.");
+      return;
+    }
+
     const nuevoUsuario = {
-      nombre,
-      email,
-      edad: Number(edad),
+      nombre: nombre.trim(),
+      email: email.trim().toLowerCase(),
+      edad: edadNumerica,
       ubicacionAproximada: {
-        ciudad,
-        pais,
+        ciudad: ciudad.trim(),
+        pais: pais.trim(),
       },
-      bio,
-      instagram,
-      fotoPerfil,
+      bio: bio.trim(),
+      instagram: instagram.trim(),
+      fotoPerfil: fotoPerfil.trim() || "https://imageurl.com/profile.jpg",
       intereses,
       contrasenia,
     };
@@ -48,18 +137,18 @@ export default function RegisterScreen() {
     console.log("Usuario a registrar:", nuevoUsuario);
 
     /*
-    Más adelante, cuando conectemos el backend:
+      Cuando conectemos el backend real:
 
-    fetch("http://localhost:3000/auth/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(nuevoUsuario),
-    });
+      fetch("http://localhost:3000/api/usuarios/registro", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(nuevoUsuario),
+      });
     */
 
-    Alert.alert("Registro", "Usuario creado correctamente");
+    alert("Usuario creado correctamente.");
     router.replace("/home" as any);
   };
 
@@ -85,9 +174,19 @@ export default function RegisterScreen() {
 
         <View style={styles.selectedBox}>
           <Text style={styles.selectedTitle}>Intereses elegidos</Text>
+
           <Text style={styles.selectedText}>
-            {intereses.length > 0 ? intereses.join(", ") : "Sin intereses"}
+            {intereses.length > 0
+              ? intereses.join(", ")
+              : "No seleccionaste intereses"}
           </Text>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push("/register-interests" as any)}
+          >
+            <Text style={styles.editInterests}>Editar intereses</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.field}>
@@ -116,6 +215,7 @@ export default function RegisterScreen() {
 
         <View style={styles.field}>
           <Text style={styles.label}>Contraseña</Text>
+
           <View style={styles.passwordBox}>
             <TextInput
               placeholder="Creá una contraseña"
@@ -153,7 +253,7 @@ export default function RegisterScreen() {
             />
           </View>
 
-          <View style={[styles.field, styles.halfField]}>
+          <View style={[styles.field, styles.halfFieldLast]}>
             <Text style={styles.label}>País</Text>
             <TextInput
               placeholder="Argentina"
@@ -201,20 +301,21 @@ export default function RegisterScreen() {
           />
         </View>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={handleRegister}>
-          <Text style={styles.primaryButtonText}>Crear cuenta</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => router.back()}
+          style={styles.primaryButton}
+          activeOpacity={0.85}
+          onPress={handleRegister}
         >
-          <Text style={styles.secondaryText}>Volver a intereses</Text>
+          <Text style={styles.primaryButtonText}>Crear cuenta</Text>
         </TouchableOpacity>
 
         <View style={styles.loginRow}>
           <Text style={styles.smallText}>¿Ya tenés cuenta? </Text>
-          <TouchableOpacity onPress={() => router.push("/login" as any)}>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push("/login" as any)}
+          >
             <Text style={styles.loginLink}>Iniciá sesión</Text>
           </TouchableOpacity>
         </View>
@@ -231,7 +332,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 34,
     paddingTop: 52,
-    paddingBottom: 50,
+    paddingBottom: 70,
   },
   logo: {
     width: 120,
@@ -273,6 +374,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#8D8A99",
     lineHeight: 19,
+    marginBottom: 8,
+  },
+  editInterests: {
+    color: "#7528F0",
+    fontSize: 13,
+    fontWeight: "800",
   },
   field: {
     width: "100%",
@@ -315,10 +422,15 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
+    width: "100%",
   },
   halfField: {
     flex: 1,
     marginRight: 10,
+  },
+  halfFieldLast: {
+    flex: 1,
+    marginRight: 0,
   },
   bioInput: {
     height: 86,
@@ -333,21 +445,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 10,
-    marginBottom: 14,
+    marginBottom: 18,
+    zIndex: 20,
   },
   primaryButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "800",
-  },
-  secondaryButton: {
-    alignItems: "center",
-    marginBottom: 18,
-  },
-  secondaryText: {
-    color: "#3A2451",
-    fontSize: 14,
-    textDecorationLine: "underline",
   },
   loginRow: {
     flexDirection: "row",
