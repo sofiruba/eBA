@@ -4,6 +4,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 
 const usuarioRoutes = require("./routes/usuario.routes");
+const eventoRoutes = require("./routes/evento.routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,7 +46,7 @@ app.get("/test-mongo", async (req, res) => {
 
 // RUTAS
 app.use("/api/usuarios", usuarioRoutes);
-
+app.use("/api/eventos", eventoRoutes);
 // 404 SIEMPRE AL FINAL
 app.use((req, res) => {
   res.status(404).json({
