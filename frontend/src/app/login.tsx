@@ -63,6 +63,12 @@ export default function LoginScreen() {
       }
 
       alert("Inicio de sesión exitoso.");
+      localStorage.setItem("usuario", JSON.stringify(data.usuario));
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      }
+
       router.replace("/home" as any);
     } catch (error) {
       console.log("Error al conectar con backend:", error);

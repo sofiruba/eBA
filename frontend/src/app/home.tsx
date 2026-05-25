@@ -10,6 +10,7 @@ import {
 import { router } from "expo-router";
 import BottomNav from "../components/BottomNav";
 import { Search, MapPin } from "lucide-react-native";
+import { useEffect } from "react";
 
 const featuredEvents = [
   {
@@ -54,6 +55,13 @@ export default function HomeScreen() {
     },
   });
 };
+useEffect(() => {
+  const usuarioGuardado = localStorage.getItem("usuario");
+
+  if (!usuarioGuardado) {
+    router.replace("/login" as any);
+  }
+}, []);
   return (
     <View style={styles.screen}>
       <ScrollView
