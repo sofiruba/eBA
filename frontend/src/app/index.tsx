@@ -12,13 +12,13 @@ export default function WelcomeScreen() {
     <View style={styles.screen}>
       <View style={styles.content}>
         <Image
-          source={{ uri: "https://i.imgur.com/Oi6Zc3K.png" }}
+          source={require("../../assets/images/logoeba.png")}
           style={styles.logo}
           resizeMode="contain"
         />
 
         <Image
-          source={{ uri: "https://i.imgur.com/6X12V0M.png" }}
+          source={require("../../assets/images/mascotaseba.png")}
           style={styles.characters}
           resizeMode="contain"
         />

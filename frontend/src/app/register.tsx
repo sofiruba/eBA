@@ -126,7 +126,7 @@ export default function RegisterScreen() {
         contentContainerStyle={styles.container}
       >
         <Image
-          source={{ uri: "https://i.imgur.com/Oi6Zc3K.png" }}
+          source={require("../../assets/images/logoeba.png")}
           style={styles.logo}
           resizeMode="contain"
         />
