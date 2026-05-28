@@ -46,7 +46,7 @@ export default function ProfileScreen() {
     <View style={styles.screen}>
       <View style={styles.content}>
         <Text style={styles.title}>
-          Bienvenida, {usuario?.nombre || "Usuario"}!
+          Hola, {usuario?.nombre || "Usuario"}!
         </Text>
 
         <Text style={styles.email}>
