@@ -164,30 +164,7 @@ export default function HomeScreen() {
           />
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categories}
-        >
-          {["Música", "Salidas", "Networking", "Cultura", "Gastronomía"].map(
-            (item, index) => (
-              <TouchableOpacity
-                key={item}
-                style={[styles.category, index === 0 && styles.categoryActive]}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    index === 0 && styles.categoryTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            )
-          )}
-        </ScrollView>
+       
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Destacados</Text>
