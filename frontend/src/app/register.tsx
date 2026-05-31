@@ -11,7 +11,7 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { EyeOff } from "lucide-react-native";
 import { API_URL } from "../config/api";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function RegisterScreen() {
   const params = useLocalSearchParams();
 

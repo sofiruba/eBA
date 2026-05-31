@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { router } from "expo-router";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function WelcomeScreen() {
   return (
     <View style={styles.screen}>

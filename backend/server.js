@@ -10,17 +10,37 @@ const eventoRoutes = require("./routes/evento.routes");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// MIDDLEWARES
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(express.json());
 
+app.use((req, res, next) => {
+  console.log("Request recibida:", req.method, req.url);
+  next();
+});
+
+console.log("MONGO_URI cargada:", process.env.MONGO_URI ? "Sí" : "No");
+console.log(
+  "Base detectada:",
+  process.env.MONGO_URI?.split(".net/")[1]?.split("?")[0]
+);
+
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 5000,
+  })
   .then(() => {
     console.log("MongoDB Atlas conectado correctamente");
   })
   .catch((error) => {
-    console.error("Error conectando a MongoDB:", error.message);
+    console.error("Error conectando a MongoDB:");
+    console.error(error.message);
   });
 
 app.get("/", (req, res) => {
@@ -29,35 +49,31 @@ app.get("/", (req, res) => {
   });
 });
 
-app.get("/test-mongo", async (req, res) => {
-  try {
-    const estado = mongoose.connection.readyState;
-
-    res.json({
-      message: "Test de MongoDB",
-      connected: estado === 1,
-      readyState: estado,
-      database: mongoose.connection.name,
-    });
-  } catch (error) {
-    res.status(500).json({
-      error: "Error probando MongoDB",
-      detail: error.message,
-    });
-  }
+app.get("/ping", (req, res) => {
+  console.log("Entró a /ping");
+  res.json({
+    message: "pong",
+  });
 });
 
-// RUTAS
+app.get("/test-mongo", (req, res) => {
+  res.json({
+    message: "Test de MongoDB",
+    connected: mongoose.connection.readyState === 1,
+    readyState: mongoose.connection.readyState,
+    database: mongoose.connection.name,
+  });
+});
+
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/eventos", eventoRoutes);
 
-// 404 SIEMPRE AL FINAL
 app.use((req, res) => {
   res.status(404).json({
     error: "Ruta no encontrada",
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor Express escuchando en http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Servidor Express escuchando en http://0.0.0.0:${PORT}`);
 });

@@ -16,6 +16,8 @@ import {
   MapPin,
   Users,
 } from "lucide-react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { API_URL } from "../../config/api";
 
 type Ubicacion = {
@@ -43,15 +45,20 @@ export default function EventDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const usuarioGuardado = localStorage.getItem("usuario");
-
-    if (!usuarioGuardado) {
-      router.replace("/login" as any);
-      return;
-    }
-
-    const obtenerEvento = async () => {
+    const iniciarDetalle = async () => {
       try {
+        const usuarioGuardado = await AsyncStorage.getItem("usuario");
+
+        if (!usuarioGuardado) {
+          router.replace("/login" as any);
+          return;
+        }
+
+        if (!id) {
+          alert("No se encontró el ID del evento.");
+          return;
+        }
+
         const response = await fetch(`${API_URL}/api/eventos/${id}`);
         const data = await response.json();
 
@@ -71,9 +78,7 @@ export default function EventDetail() {
       }
     };
 
-    if (id) {
-      obtenerEvento();
-    }
+    iniciarDetalle();
   }, [id]);
 
   const formatearFecha = (fecha?: string) => {
@@ -113,6 +118,18 @@ export default function EventDetail() {
     return partes.length > 0 ? partes.join(", ") : "Buenos Aires";
   };
 
+  const obtenerImagen = (imagen?: string) => {
+    if (!imagen || imagen.trim() === "") {
+      return "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=1000";
+    }
+
+    if (imagen.startsWith("http")) {
+      return imagen;
+    }
+
+    return `${API_URL}${imagen}`;
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -148,11 +165,7 @@ export default function EventDetail() {
 
         <View style={styles.imageWrapper}>
           <Image
-            source={{
-              uri:
-                eventData.imagen ||
-                "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=1000",
-            }}
+            source={{ uri: obtenerImagen(eventData.imagen) }}
             style={styles.heroImage}
           />
 
@@ -217,7 +230,9 @@ export default function EventDetail() {
               </View>
 
               <View style={styles.infoTextBox}>
-                <Text style={styles.infoTitle}>{formatearFecha(eventData.fecha)}</Text>
+                <Text style={styles.infoTitle}>
+                  {formatearFecha(eventData.fecha)}
+                </Text>
                 <Text style={styles.infoSubtitle}>Fecha del evento</Text>
               </View>
             </View>
@@ -464,7 +479,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginHorizontal: 22,
     marginTop: 14,
-    boxShadow: "0px 14px 28px rgba(117,40,240,0.28)" as any,
   },
   mainButtonText: {
     color: "#FFFFFF",

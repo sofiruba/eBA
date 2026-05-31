@@ -10,6 +10,7 @@ import {
 import { router } from "expo-router";
 import { EyeOff } from "lucide-react-native";
 import { API_URL } from "../config/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -63,10 +64,10 @@ export default function LoginScreen() {
       }
 
       alert("Inicio de sesión exitoso.");
-      localStorage.setItem("usuario", JSON.stringify(data.usuario));
+      await AsyncStorage.setItem("usuario", JSON.stringify(data.usuario));
 
       if (data.token) {
-        localStorage.setItem("token", data.token);
+        await AsyncStorage.setItem("token", data.token);
       }
 
       router.replace("/home" as any);
