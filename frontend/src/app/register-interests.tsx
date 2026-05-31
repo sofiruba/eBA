@@ -16,7 +16,6 @@ const availableInterests = [
   "recitales",
   "arte",
   "teatro",
-  "networking",
   "gastronomía",
   "indie",
   "pop",
