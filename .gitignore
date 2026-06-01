@@ -35,3 +35,4 @@ ios/
 logs/
 *.log
 backend/serviceAccountKey.json
+frontend/src/config/api.ts
