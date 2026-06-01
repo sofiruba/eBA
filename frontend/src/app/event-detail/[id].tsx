@@ -280,7 +280,11 @@ export default function EventDetail() {
             <Text style={styles.secondaryArrow}>›</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.mainButton}>
+          <TouchableOpacity
+            style={styles.mainButton}
+            activeOpacity={0.85}
+            onPress={() => router.push(`/event-people/${eventData._id}` as any)}
+          >
             <Text style={styles.mainButtonText}>Quiero ir!</Text>
           </TouchableOpacity>
         </View>
