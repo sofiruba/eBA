@@ -7,6 +7,9 @@ const cors = require("cors");
 const usuarioRoutes = require("./routes/usuario.routes");
 const eventoRoutes = require("./routes/evento.routes");
 const asistenciaRoutes = require("./routes/asistencia.routes");
+const solicitudconexionRoutes = require("./routes/solicitudconexion.routes");
+const conexionRoutes = require("./routes/conexion.routes");
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -68,7 +71,8 @@ app.get("/test-mongo", (req, res) => {
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/eventos", eventoRoutes);
 app.use("/api/asistencias", asistenciaRoutes);
-
+app.use("/api/solicitudes-conexion", solicitudconexionRoutes);
+app.use("/api/conexiones", conexionRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
