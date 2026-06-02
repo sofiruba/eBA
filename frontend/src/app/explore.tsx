@@ -7,37 +7,19 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import {
-  Search,
-  SlidersHorizontal,
-  MapPin,
-  Heart,
-} from "lucide-react-native";
+import { Search, SlidersHorizontal } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Logo from "../components/Logo";
 import { API_URL } from "../config/api";
 import BottomNav from "../components/BottomNav";
+import LoadingScreen from "../components/LoadingScreen";
+import EmptyState from "../components/EmptyState";
+import EventListCard from "../components/EventListCard";
+import SectionHeader from "../components/SectionHeader";
 
-type Ubicacion = {
-  ciudad?: string;
-  barrio?: string;
-  direccion?: string;
-};
-
-type Evento = {
-  _id: string;
-  nombre: string;
-  descripcion?: string;
-  fecha?: string;
-  ubicacion?: Ubicacion;
-  categoria?: string;
-  imagen?: string;
-  organizador?: string;
-  esPromocionado?: boolean;
-};
+import { Evento } from "../types/Evento";
 
 const categorias = [
   "festival",
@@ -259,9 +241,7 @@ export default function ExploreScreen() {
       const yaEstaInteresado = asistencias.some((asistencia: any) => {
         const evento = asistencia.eventoId;
 
-        if (!evento) {
-          return false;
-        }
+        if (!evento) return false;
 
         if (typeof evento === "string") {
           return evento === eventoId;
@@ -281,46 +261,6 @@ export default function ExploreScreen() {
     }
   };
 
-  const obtenerImagen = (imagen?: string) => {
-    if (!imagen || imagen.trim() === "") {
-      return "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1000";
-    }
-
-    if (imagen.startsWith("http")) {
-      return imagen;
-    }
-
-    return `${API_URL}${imagen}`;
-  };
-
-  const formatearFecha = (fecha?: string) => {
-    if (!fecha) return "Fecha a confirmar";
-
-    const fechaDate = new Date(fecha);
-
-    if (isNaN(fechaDate.getTime())) {
-      return fecha;
-    }
-
-    return fechaDate.toLocaleDateString("es-AR", {
-      day: "numeric",
-      month: "short",
-    });
-  };
-
-  const obtenerUbicacion = (ubicacion?: Ubicacion) => {
-    if (!ubicacion) return "Ubicación a confirmar";
-
-    if (ubicacion.barrio && ubicacion.ciudad) {
-      return `${ubicacion.barrio}, ${ubicacion.ciudad}`;
-    }
-
-    if (ubicacion.ciudad) return ubicacion.ciudad;
-    if (ubicacion.direccion) return ubicacion.direccion;
-
-    return "Ubicación a confirmar";
-  };
-
   const obtenerTituloSeccion = () => {
     if (params.filtro === "promocionados") return "Eventos destacados";
     if (categoriaActiva) return `Eventos de ${categoriaActiva}`;
@@ -329,12 +269,7 @@ export default function ExploreScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.loadingScreen}>
-        <ActivityIndicator size="large" color="#7528F0" />
-        <Text style={styles.loadingText}>Cargando búsqueda...</Text>
-      </View>
-    );
+    return <LoadingScreen text="Cargando búsqueda..." />;
   }
 
   return (
@@ -397,25 +332,14 @@ export default function ExploreScreen() {
         </ScrollView>
 
         {!buscoAlgo && (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIconCircle}>
-              <Search size={64} color="#8B35E8" />
-            </View>
-
-            <Text style={styles.emptyTitle}>Todavía no buscaste nada</Text>
-
-            <Text style={styles.emptyText}>
-              Explorá eventos, personas o lugares para encontrar con quién ir.
-            </Text>
-          </View>
+          <EmptyState
+            icon={<Search size={54} color="#8B35E8" />}
+            title="Todavía no buscaste nada"
+            text="Explorá eventos, personas o lugares para encontrar con quién ir."
+          />
         )}
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Búsquedas populares</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAll}>Ver todos</Text>
-          </TouchableOpacity>
-        </View>
+        <SectionHeader title="Búsquedas populares" />
 
         <View style={styles.popularContainer}>
           {busquedasPopulares.map((item) => (
@@ -431,13 +355,11 @@ export default function ExploreScreen() {
           ))}
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{obtenerTituloSeccion()}</Text>
-
-          <TouchableOpacity onPress={limpiarFiltros}>
-            <Text style={styles.seeAll}>Limpiar</Text>
-          </TouchableOpacity>
-        </View>
+        <SectionHeader
+          title={obtenerTituloSeccion()}
+          actionText="Limpiar"
+          onPress={limpiarFiltros}
+        />
 
         {eventos.length === 0 ? (
           <View style={styles.noResultsCard}>
@@ -449,57 +371,14 @@ export default function ExploreScreen() {
         ) : (
           <View style={styles.eventsList}>
             {eventos.map((evento) => (
-              <TouchableOpacity
+              <EventListCard
                 key={evento._id}
-                style={styles.eventCard}
-                activeOpacity={0.85}
+                evento={evento}
+                showHeart
+                isFavorite={esFavorito(evento._id)}
+                onHeartPress={() => toggleFavorito(evento._id)}
                 onPress={() => irADetalle(evento._id)}
-              >
-                <Image
-                  source={{ uri: obtenerImagen(evento.imagen) }}
-                  style={styles.eventImage}
-                />
-
-                <View style={styles.eventInfo}>
-                  <View style={styles.eventTitleRow}>
-                    <Text style={styles.eventTitle} numberOfLines={1}>
-                      {evento.nombre}
-                    </Text>
-
-                    <View style={styles.tag}>
-                      <Text style={styles.tagText}>
-                        {evento.categoria || "evento"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.eventDate}>
-                    {formatearFecha(evento.fecha)}
-                  </Text>
-
-                  <View style={styles.locationRow}>
-                    <MapPin size={13} color="#8B35E8" />
-                    <Text style={styles.locationText} numberOfLines={1}>
-                      {obtenerUbicacion(evento.ubicacion)}
-                    </Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.heartButton}
-                  activeOpacity={0.85}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    toggleFavorito(evento._id);
-                  }}
-                >
-                  <Heart
-                    size={22}
-                    color={esFavorito(evento._id) ? "#EF4444" : "#9B98A8"}
-                    fill={esFavorito(evento._id) ? "#EF4444" : "transparent"}
-                  />
-                </TouchableOpacity>
-              </TouchableOpacity>
+              />
             ))}
           </View>
         )}
@@ -514,17 +393,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: "#F7F5FF",
-  },
-  loadingScreen: {
-    flex: 1,
-    backgroundColor: "#F7F5FF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: {
-    marginTop: 12,
-    color: "#6F6D7A",
-    fontWeight: "600",
   },
   container: {
     paddingHorizontal: 28,
@@ -596,52 +464,6 @@ const styles = StyleSheet.create({
   categoryTextActive: {
     color: "#FFFFFF",
   },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 34,
-    marginBottom: 18,
-  },
-  emptyIconCircle: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: "#F1ECFF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 18,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#2D2934",
-    marginBottom: 6,
-    textAlign: "center",
-  },
-  emptyText: {
-    fontSize: 14,
-    color: "#8D8A99",
-    textAlign: "center",
-    lineHeight: 20,
-    maxWidth: 270,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 14,
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#2D2934",
-    textTransform: "capitalize",
-  },
-  seeAll: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#7528F0",
-  },
   popularContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -667,73 +489,6 @@ const styles = StyleSheet.create({
   },
   eventsList: {
     marginBottom: 24,
-  },
-  eventCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 10,
-    marginBottom: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.04)",
-  },
-  eventImage: {
-    width: 116,
-    height: 72,
-    borderRadius: 14,
-    marginRight: 12,
-  },
-  eventInfo: {
-    flex: 1,
-  },
-  eventTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 5,
-  },
-  eventTitle: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "900",
-    color: "#2D2934",
-    marginRight: 6,
-  },
-  tag: {
-    backgroundColor: "#F1ECFF",
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  tagText: {
-    color: "#7528F0",
-    fontSize: 9,
-    fontWeight: "800",
-    textTransform: "capitalize",
-  },
-  eventDate: {
-    fontSize: 12,
-    color: "#8D8A99",
-    marginBottom: 5,
-  },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  locationText: {
-    marginLeft: 4,
-    fontSize: 12,
-    color: "#8D8A99",
-    flex: 1,
-  },
-  heartButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#F8F7FF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
   },
   noResultsCard: {
     backgroundColor: "#FFFFFF",

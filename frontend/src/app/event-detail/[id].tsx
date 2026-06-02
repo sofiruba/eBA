@@ -6,7 +6,6 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -16,28 +15,18 @@ import {
   MapPin,
   Users,
 } from "lucide-react-native";
-import Logo from "../../components/Logo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { API_URL } from "../../config/api";
-
-type Ubicacion = {
-  ciudad?: string;
-  barrio?: string;
-  direccion?: string;
-};
-
-type Evento = {
-  _id: string;
-  nombre: string;
-  descripcion?: string;
-  fecha?: string;
-  ubicacion?: Ubicacion;
-  categoria?: string;
-  imagen?: string;
-  organizador?: string;
-  esPromocionado?: boolean;
-};
+import Logo from "../../components/Logo";
+import LoadingScreen from "../../components/LoadingScreen";
+import EmptyState from "../../components/EmptyState";
+import { Evento } from "../../types/Evento";
+import {
+  obtenerImagen,
+  formatearFechaLarga,
+  obtenerUbicacion,
+} from "../../utils/eventHelpers";
 
 export default function EventDetail() {
   const { id } = useLocalSearchParams();
@@ -47,41 +36,39 @@ export default function EventDetail() {
   const [registrando, setRegistrando] = useState(false);
 
   useEffect(() => {
-    const iniciarDetalle = async () => {
-      try {
-        const usuarioGuardado = await AsyncStorage.getItem("usuario");
-
-        if (!usuarioGuardado) {
-          router.replace("/login" as any);
-          return;
-        }
-
-        if (!id) {
-          alert("No se encontró el ID del evento.");
-          return;
-        }
-
-        const response = await fetch(`${API_URL}/api/eventos/${id}`);
-        const data = await response.json();
-
-        console.log("Detalle evento desde backend:", data);
-
-        if (!response.ok) {
-          alert(data.message || data.error || "Error al traer detalle.");
-          return;
-        }
-
-        setEventData(data.evento || data);
-      } catch (error) {
-        console.log("Error al traer detalle:", error);
-        alert("No se pudo conectar con el servidor.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     iniciarDetalle();
   }, [id]);
+
+  const iniciarDetalle = async () => {
+    try {
+      const usuarioGuardado = await AsyncStorage.getItem("usuario");
+
+      if (!usuarioGuardado) {
+        router.replace("/login" as any);
+        return;
+      }
+
+      if (!id) {
+        alert("No se encontró el ID del evento.");
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/eventos/${id}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || data.error || "Error al traer detalle.");
+        return;
+      }
+
+      setEventData(data.evento || data);
+    } catch (error) {
+      console.log("Error al traer detalle:", error);
+      alert("No se pudo conectar con el servidor.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const registrarAsistencia = async () => {
     try {
@@ -123,8 +110,6 @@ export default function EventDetail() {
 
       const data = await response.json();
 
-      console.log("Respuesta asistencia:", data);
-
       if (!response.ok) {
         alert(data.error || "Error al registrar asistencia.");
         return;
@@ -139,76 +124,18 @@ export default function EventDetail() {
     }
   };
 
-  const formatearFecha = (fecha?: string) => {
-    if (!fecha) return "Fecha a confirmar";
-
-    const fechaDate = new Date(fecha);
-
-    if (isNaN(fechaDate.getTime())) {
-      return fecha;
-    }
-
-    return fechaDate.toLocaleDateString("es-AR", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  };
-
-  const obtenerUbicacionPrincipal = (ubicacion?: Ubicacion) => {
-    if (!ubicacion) return "Ubicación a confirmar";
-
-    if (ubicacion.direccion) return ubicacion.direccion;
-    if (ubicacion.barrio) return ubicacion.barrio;
-    if (ubicacion.ciudad) return ubicacion.ciudad;
-
-    return "Ubicación a confirmar";
-  };
-
-  const obtenerUbicacionSecundaria = (ubicacion?: Ubicacion) => {
-    if (!ubicacion) return "Buenos Aires";
-
-    const partes = [];
-
-    if (ubicacion.barrio) partes.push(ubicacion.barrio);
-    if (ubicacion.ciudad) partes.push(ubicacion.ciudad);
-
-    return partes.length > 0 ? partes.join(", ") : "Buenos Aires";
-  };
-
-  const obtenerImagen = (imagen?: string) => {
-    if (!imagen || imagen.trim() === "") {
-      return "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?q=80&w=1000";
-    }
-
-    if (imagen.startsWith("http")) {
-      return imagen;
-    }
-
-    return `${API_URL}${imagen}`;
-  };
-
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#7528F0" />
-        <Text style={styles.loadingText}>Cargando detalle...</Text>
-      </View>
-    );
+    return <LoadingScreen text="Cargando detalle..." />;
   }
 
   if (!eventData) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>No se encontró el evento</Text>
-
-        <TouchableOpacity
-          style={styles.backFallback}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backFallbackText}>Volver</Text>
-        </TouchableOpacity>
-      </View>
+      <EmptyState
+        title="No se encontró el evento"
+        text="Volvé e intentá entrar nuevamente."
+        buttonText="Volver"
+        onPress={() => router.back()}
+      />
     );
   }
 
@@ -218,7 +145,8 @@ export default function EventDetail() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
       >
-        <Logo size="large" centered={false} showText={true} />
+        <Logo size="medium" />
+
         <View style={styles.imageWrapper}>
           <Image
             source={{ uri: obtenerImagen(eventData.imagen) }}
@@ -245,28 +173,6 @@ export default function EventDetail() {
             </Text>
           </View>
 
-          <View style={styles.avatarRow}>
-            <Image
-              source={{
-                uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=200",
-              }}
-              style={styles.avatar}
-            />
-            <Image
-              source={{
-                uri: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200",
-              }}
-              style={[styles.avatar, styles.avatarOverlap]}
-            />
-            <Image
-              source={{
-                uri: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200",
-              }}
-              style={[styles.avatar, styles.avatarOverlap]}
-            />
-            <Text style={styles.avatarText}>Ver usuarios</Text>
-          </View>
-
           <View style={styles.infoList}>
             <View style={styles.infoItem}>
               <View style={styles.iconBox}>
@@ -275,11 +181,9 @@ export default function EventDetail() {
 
               <View style={styles.infoTextBox}>
                 <Text style={styles.infoTitle}>
-                  {obtenerUbicacionPrincipal(eventData.ubicacion)}
+                  {obtenerUbicacion(eventData.ubicacion)}
                 </Text>
-                <Text style={styles.infoSubtitle}>
-                  {obtenerUbicacionSecundaria(eventData.ubicacion)}
-                </Text>
+                <Text style={styles.infoSubtitle}>Ubicación del evento</Text>
               </View>
             </View>
 
@@ -290,7 +194,7 @@ export default function EventDetail() {
 
               <View style={styles.infoTextBox}>
                 <Text style={styles.infoTitle}>
-                  {formatearFecha(eventData.fecha)}
+                  {formatearFechaLarga(eventData.fecha)}
                 </Text>
                 <Text style={styles.infoSubtitle}>Fecha del evento</Text>
               </View>
@@ -314,24 +218,6 @@ export default function EventDetail() {
             {eventData.descripcion ||
               "Evento ideal para conocer personas con intereses similares y vivir la experiencia acompañado."}
           </Text>
-
-          <TouchableOpacity style={styles.readMore}>
-            <Text style={styles.readMoreText}>Leer más</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryCard}
-            activeOpacity={0.85}
-            onPress={() => router.push(`/event-people/${eventData._id}` as any)}
-          >
-            <View>
-              <Text style={styles.secondaryTitle}>Publicaciones</Text>
-              <Text style={styles.secondaryText}>
-                Mirá qué están compartiendo sobre este evento.
-              </Text>
-            </View>
-            <Text style={styles.secondaryArrow}>›</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryCard}
@@ -371,43 +257,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F4F6FB",
   },
-  center: {
-    flex: 1,
-    backgroundColor: "#F4F6FB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: {
-    marginTop: 12,
-    color: "#6F6D7A",
-    fontWeight: "600",
-  },
-  errorText: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#332047",
-  },
-  backFallback: {
-    marginTop: 20,
-    backgroundColor: "#7528F0",
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 16,
-  },
-  backFallbackText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
   container: {
     paddingHorizontal: 24,
     paddingTop: 48,
     paddingBottom: 50,
-  },
-  logo: {
-    width: 76,
-    height: 46,
-    marginBottom: 22,
-    alignSelf: "center",
   },
   imageWrapper: {
     height: 245,
@@ -457,27 +310,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#5F5C68",
   },
-  avatarRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 28,
-  },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
-  avatarOverlap: {
-    marginLeft: -10,
-  },
-  avatarText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: "#3A2451",
-    fontWeight: "600",
-  },
   infoList: {
     marginBottom: 22,
   },
@@ -513,15 +345,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: "#6F6D7A",
     marginTop: 4,
-  },
-  readMore: {
-    marginTop: 10,
     marginBottom: 18,
-  },
-  readMoreText: {
-    color: "#7B2DF0",
-    fontSize: 14,
-    fontWeight: "700",
   },
   secondaryCard: {
     backgroundColor: "#FFFFFF",

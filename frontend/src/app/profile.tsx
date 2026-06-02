@@ -4,56 +4,52 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   ScrollView,
-  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { LogOut, Mail, Calendar, Heart, Pencil } from "lucide-react-native";
+import {
+  LogOut,
+  Mail,
+  Calendar,
+  Heart,
+  Pencil,
+} from "lucide-react-native";
 
 import BottomNav from "../components/BottomNav";
+import Logo from "../components/Logo";
+import LoadingScreen from "../components/LoadingScreen";
+import UserAvatar from "../components/UserAvatar";
+import SectionHeader from "../components/SectionHeader";
 
-type Usuario = {
-  id?: string;
-  _id?: string;
-  nombre?: string;
-  email?: string;
-  edad?: number;
-  intereses?: string[];
-  bio?: string;
-  instagram?: string;
-  fotoPerfil?: string;
-};
+import { Usuario } from "../types/Usuario";
 
 export default function ProfileScreen() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cargarUsuario = async () => {
-      try {
-        const usuarioGuardado = await AsyncStorage.getItem("usuario");
-
-        if (!usuarioGuardado) {
-          router.replace("/login" as any);
-          return;
-        }
-
-        const usuarioParseado = JSON.parse(usuarioGuardado);
-        console.log("Usuario en perfil:", usuarioParseado);
-
-        setUsuario(usuarioParseado);
-      } catch (error) {
-        console.log("Error al cargar usuario:", error);
-        router.replace("/login" as any);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     cargarUsuario();
   }, []);
+
+  const cargarUsuario = async () => {
+    try {
+      const usuarioGuardado = await AsyncStorage.getItem("usuario");
+
+      if (!usuarioGuardado) {
+        router.replace("/login" as any);
+        return;
+      }
+
+      const usuarioParseado = JSON.parse(usuarioGuardado);
+      setUsuario(usuarioParseado);
+    } catch (error) {
+      console.log("Error al cargar usuario:", error);
+      router.replace("/login" as any);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const cerrarSesion = async () => {
     await AsyncStorage.removeItem("usuario");
@@ -61,18 +57,8 @@ export default function ProfileScreen() {
     router.replace("/login" as any);
   };
 
-  const obtenerInicial = () => {
-    if (!usuario?.nombre) return "U";
-    return usuario.nombre.charAt(0).toUpperCase();
-  };
-
   if (loading) {
-    return (
-      <View style={styles.loadingScreen}>
-        <ActivityIndicator size="large" color="#7528F0" />
-        <Text style={styles.loadingText}>Cargando perfil...</Text>
-      </View>
-    );
+    return <LoadingScreen text="Cargando perfil..." />;
   }
 
   return (
@@ -81,6 +67,8 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
       >
+        <Logo size="medium" />
+
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Mi perfil</Text>
 
@@ -90,16 +78,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.profileCard}>
-          {usuario?.fotoPerfil ? (
-            <Image
-              source={{ uri: usuario.fotoPerfil }}
-              style={styles.avatar}
-            />
-          ) : (
-            <View style={styles.avatarFallback}>
-              <Text style={styles.avatarLetter}>{obtenerInicial()}</Text>
-            </View>
-          )}
+          <UserAvatar usuario={usuario || undefined} size={112} />
 
           <Text style={styles.name}>
             {usuario?.nombre || "Usuario"}
@@ -113,7 +92,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.infoCard}>
-          <Text style={styles.sectionTitle}>Información personal</Text>
+          <SectionHeader title="Información personal" />
 
           <View style={styles.infoRow}>
             <View style={styles.iconBox}>
@@ -154,7 +133,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.infoCard}>
-          <Text style={styles.sectionTitle}>Tus intereses</Text>
+          <SectionHeader title="Tus intereses" />
 
           {usuario?.intereses && usuario.intereses.length > 0 ? (
             <View style={styles.chipsContainer}>
@@ -171,8 +150,6 @@ export default function ProfileScreen() {
             </Text>
           )}
         </View>
-
-        
 
         <TouchableOpacity
           style={styles.logoutButton}
@@ -193,17 +170,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: "#F4F6FB",
-  },
-  loadingScreen: {
-    flex: 1,
-    backgroundColor: "#F4F6FB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: {
-    marginTop: 12,
-    color: "#6F6D7A",
-    fontWeight: "600",
   },
   container: {
     paddingHorizontal: 28,
@@ -238,31 +204,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.04)",
   },
-  avatar: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    marginBottom: 16,
-  },
-  avatarFallback: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    backgroundColor: "#7528F0",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  avatarLetter: {
-    fontSize: 44,
-    fontWeight: "900",
-    color: "#FFFFFF",
-  },
   name: {
     fontSize: 26,
     fontWeight: "800",
     color: "#332047",
     marginBottom: 8,
+    marginTop: 12,
     textAlign: "center",
   },
   bio: {
@@ -278,12 +225,6 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.04)",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#332047",
-    marginBottom: 16,
   },
   infoRow: {
     flexDirection: "row",
@@ -337,24 +278,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#8D8A99",
     lineHeight: 21,
-  },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  statBox: {
-    flex: 1,
-    alignItems: "center",
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#7528F0",
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#8D8A99",
-    marginTop: 4,
   },
   logoutButton: {
     height: 54,
