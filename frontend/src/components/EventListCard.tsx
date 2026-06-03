@@ -3,9 +3,9 @@ import {
   Text,
   StyleSheet,
   Image,
-  TouchableOpacity,
+  Pressable,
 } from "react-native";
-import { CalendarDays, MapPin, Heart } from "lucide-react-native";
+import { CalendarDays, MapPin, Heart, Trash2 } from "lucide-react-native";
 
 import { Evento } from "../types/Evento";
 import {
@@ -17,9 +17,14 @@ import {
 type EventListCardProps = {
   evento: Evento;
   onPress: () => void;
+
   showHeart?: boolean;
   isFavorite?: boolean;
   onHeartPress?: () => void;
+
+  showRemove?: boolean;
+  onRemovePress?: () => void;
+
   status?: string;
 };
 
@@ -29,14 +34,12 @@ export default function EventListCard({
   showHeart = false,
   isFavorite = false,
   onHeartPress,
+  showRemove = false,
+  onRemovePress,
   status,
 }: EventListCardProps) {
   return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.85}
-      onPress={onPress}
-    >
+    <Pressable style={styles.card} onPress={onPress}>
       <Image
         source={{ uri: obtenerImagen(evento.imagen) }}
         style={styles.eventImage}
@@ -75,9 +78,9 @@ export default function EventListCard({
       </View>
 
       {showHeart && (
-        <TouchableOpacity
-          style={styles.heartButton}
-          activeOpacity={0.85}
+        <Pressable
+          style={styles.sideButton}
+          hitSlop={10}
           onPress={(e) => {
             e.stopPropagation();
             onHeartPress?.();
@@ -88,9 +91,22 @@ export default function EventListCard({
             color={isFavorite ? "#EF4444" : "#9B98A8"}
             fill={isFavorite ? "#EF4444" : "transparent"}
           />
-        </TouchableOpacity>
+        </Pressable>
       )}
-    </TouchableOpacity>
+
+      {showRemove && (
+        <Pressable
+          style={styles.removeButton}
+          hitSlop={12}
+          onPress={(e) => {
+            e.stopPropagation();
+            onRemovePress?.();
+          }}
+        >
+          <Trash2 size={20} color="#EF4444" />
+        </Pressable>
+      )}
+    </Pressable>
   );
 }
 
@@ -104,6 +120,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.04)",
+    position: "relative",
   },
   eventImage: {
     width: 104,
@@ -113,6 +130,7 @@ const styles = StyleSheet.create({
   },
   eventInfo: {
     flex: 1,
+    paddingRight: 44,
   },
   titleRow: {
     flexDirection: "row",
@@ -149,7 +167,7 @@ const styles = StyleSheet.create({
     color: "#8D8A99",
     flex: 1,
   },
-  heartButton: {
+  sideButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
@@ -157,6 +175,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 8,
+    zIndex: 50,
+    elevation: 50,
+  },
+  removeButton: {
+    position: "absolute",
+    right: 10,
+    top: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFF1F2",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 999,
+    elevation: 999,
   },
   statusPill: {
     marginTop: 5,

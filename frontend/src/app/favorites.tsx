@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
 import { router } from "expo-router";
 import { Ticket, Users } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -9,6 +9,7 @@ import BottomNav from "../components/BottomNav";
 import LoadingScreen from "../components/LoadingScreen";
 import EmptyState from "../components/EmptyState";
 import EventListCard from "../components/EventListCard";
+import Logo from "../components/Logo";
 
 import { Asistencia } from "../types/Asistencia";
 import { Evento } from "../types/Evento";
@@ -63,6 +64,29 @@ export default function FavoritesScreen() {
     }
   };
 
+  const sacarDeMisEventos = async (asistenciaId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/asistencias/${asistenciaId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "No se pudo sacar el evento.");
+        return;
+      }
+
+      setAsistencias((prev) =>
+        prev.filter((asistencia) => asistencia._id !== asistenciaId)
+      );
+    } catch (error) {
+      console.log("Error al sacar evento:", error);
+      alert("No se pudo conectar con el servidor.");
+    }
+  };
+
+
   const irAEvento = (eventoId?: string) => {
     if (!eventoId) return;
 
@@ -89,6 +113,8 @@ export default function FavoritesScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
       >
+        <Logo size="medium" />
+
         <Text style={styles.title}>Mis eventos</Text>
 
         <Text style={styles.subtitle}>
@@ -131,6 +157,8 @@ export default function FavoritesScreen() {
                   key={asistencia._id}
                   evento={evento}
                   status={obtenerTextoEstado(asistencia.estado)}
+                  showRemove
+                  onRemovePress={() => sacarDeMisEventos(asistencia._id)}
                   onPress={() => irAEvento(evento._id)}
                 />
               );
