@@ -177,4 +177,66 @@ router.get("/usuario/:usuarioId", async (req, res) => {
   }
 });
 
+/*
+GET /api/solicitudes-conexion/pendientes/:usuarioId
+Obtener solicitudes pendientes enviadas o recibidas por un usuario
+*/
+router.get("/pendientes/:usuarioId", async (req, res) => {
+  try {
+    const { usuarioId } = req.params;
+
+    const solicitudes = await SolicitudConexion.find({
+      estado: "pendiente",
+      $or: [
+        { usuariosolicitante: usuarioId },
+        { usuarioreceptor: usuarioId },
+      ],
+    })
+      .populate("usuariosolicitante")
+      .populate("usuarioreceptor");
+
+    res.json({
+      mensaje: "Solicitudes pendientes obtenidas correctamente",
+      solicitudes,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      mensaje: "Error al obtener solicitudes pendientes",
+    });
+  }
+});
+
+/*
+GET /api/solicitudes-conexion/pendientes/:usuarioId
+Obtener solicitudes pendientes enviadas o recibidas por un usuario
+*/
+router.get("/pendientes/:usuarioId", async (req, res) => {
+  try {
+    const { usuarioId } = req.params;
+
+    const solicitudes = await SolicitudConexion.find({
+      estado: "pendiente",
+      $or: [
+        { usuariosolicitante: usuarioId },
+        { usuarioreceptor: usuarioId },
+      ],
+    })
+      .populate("usuariosolicitante")
+      .populate("usuarioreceptor");
+
+    res.json({
+      mensaje: "Solicitudes pendientes obtenidas correctamente",
+      solicitudes,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      mensaje: "Error al obtener solicitudes pendientes",
+    });
+  }
+});
+
 module.exports = router;

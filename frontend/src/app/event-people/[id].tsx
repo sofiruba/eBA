@@ -8,7 +8,13 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Plus, UserRound, CheckCircle } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Plus,
+  UserRound,
+  CheckCircle,
+  Clock3,
+} from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { API_URL } from "../../config/api";
@@ -19,10 +25,7 @@ import SectionHeader from "../../components/SectionHeader";
 
 import { Evento } from "../../types/Evento";
 import { Usuario } from "../../types/Usuario";
-import {
-  obtenerImagen,
-  formatearFechaLarga,
-} from "../../utils/eventHelpers";
+import { obtenerImagen, formatearFechaLarga } from "../../utils/eventHelpers";
 
 type Asistencia = {
   _id: string;
@@ -37,12 +40,22 @@ type Conexion = {
   usuario2: Usuario;
 };
 
+type SolicitudConexion = {
+  _id: string;
+  usuariosolicitante: Usuario;
+  usuarioreceptor: Usuario;
+  estado: string;
+};
+
 export default function EventPeopleScreen() {
   const { id } = useLocalSearchParams();
 
   const [evento, setEvento] = useState<Evento | null>(null);
   const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
   const [conexionesIds, setConexionesIds] = useState<string[]>([]);
+  const [solicitudesPendientesIds, setSolicitudesPendientesIds] = useState<
+    string[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [usuarioActualId, setUsuarioActualId] = useState<string | null>(null);
   const [tabActiva, setTabActiva] = useState<
@@ -64,6 +77,12 @@ export default function EventPeopleScreen() {
 
       const usuario = JSON.parse(usuarioGuardado);
       const idUsuario = usuario.id || usuario._id;
+
+      if (!idUsuario) {
+        alert("No se encontró el usuario logueado.");
+        router.replace("/login" as any);
+        return;
+      }
 
       setUsuarioActualId(idUsuario);
 
@@ -107,8 +126,8 @@ export default function EventPeopleScreen() {
 
       if (responseConexiones.ok) {
         const idsAmigos = (dataConexiones || []).map((conexion: Conexion) => {
-          const usuario1Id = conexion.usuario1?._id || conexion.usuario1?.id;
-          const usuario2Id = conexion.usuario2?._id || conexion.usuario2?.id;
+          const usuario1Id = obtenerUsuarioId(conexion.usuario1);
+          const usuario2Id = obtenerUsuarioId(conexion.usuario2);
 
           if (usuario1Id === idUsuario) {
             return usuario2Id;
@@ -118,6 +137,29 @@ export default function EventPeopleScreen() {
         });
 
         setConexionesIds(idsAmigos.filter(Boolean));
+      }
+
+      const responseSolicitudes = await fetch(
+        `${API_URL}/api/solicitudes-conexion/pendientes/${idUsuario}`
+      );
+
+      const dataSolicitudes = await responseSolicitudes.json();
+
+      if (responseSolicitudes.ok) {
+        const idsPendientes = (dataSolicitudes.solicitudes || []).map(
+          (solicitud: SolicitudConexion) => {
+            const solicitanteId = obtenerUsuarioId(solicitud.usuariosolicitante);
+            const receptorId = obtenerUsuarioId(solicitud.usuarioreceptor);
+
+            if (solicitanteId === idUsuario) {
+              return receptorId;
+            }
+
+            return solicitanteId;
+          }
+        );
+
+        setSolicitudesPendientesIds(idsPendientes.filter(Boolean));
       }
     } catch (error) {
       console.log("Error en pantalla de personas:", error);
@@ -162,10 +204,20 @@ export default function EventPeopleScreen() {
 
       const data = await response.json();
 
+      console.log("Respuesta solicitud conexión:", data);
+
       if (!response.ok) {
         alert(data.mensaje || "No se pudo enviar la solicitud.");
         return;
       }
+
+      setSolicitudesPendientesIds((prev) => {
+        if (prev.includes(usuarioReceptorId)) {
+          return prev;
+        }
+
+        return [...prev, usuarioReceptorId];
+      });
 
       alert("Solicitud enviada correctamente.");
     } catch (error) {
@@ -186,6 +238,11 @@ export default function EventPeopleScreen() {
   const esAmigo = (usuarioId?: string) => {
     if (!usuarioId) return false;
     return conexionesIds.includes(usuarioId);
+  };
+
+  const tieneSolicitudPendiente = (usuarioId?: string) => {
+    if (!usuarioId) return false;
+    return solicitudesPendientesIds.includes(usuarioId);
   };
 
   const obtenerUbicacionEvento = () => {
@@ -236,7 +293,11 @@ export default function EventPeopleScreen() {
 
           <View style={styles.headerInfo}>
             <Text style={styles.eventTitle}>{evento.nombre}</Text>
-            <Text style={styles.eventDate}>{formatearFechaLarga(evento.fecha)}</Text>
+
+            <Text style={styles.eventDate}>
+              {formatearFechaLarga(evento.fecha)}
+            </Text>
+
             <Text style={styles.eventLocation}>{obtenerUbicacionEvento()}</Text>
 
             <View style={styles.avatarRow}>
@@ -313,6 +374,7 @@ export default function EventPeopleScreen() {
                 const usuario = asistencia.usuarioId;
                 const receptorId = obtenerUsuarioId(usuario);
                 const yaEsAmigo = esAmigo(receptorId);
+                const solicitudPendiente = tieneSolicitudPendiente(receptorId);
 
                 return (
                   <View key={asistencia._id} style={styles.personCard}>
@@ -331,15 +393,24 @@ export default function EventPeopleScreen() {
                         style={[
                           styles.statusText,
                           yaEsAmigo && styles.friendStatusText,
+                          solicitudPendiente && styles.pendingStatusText,
                         ]}
                       >
-                        {yaEsAmigo ? "Ya son conexión" : "Estado: interesado"}
+                        {yaEsAmigo
+                          ? "Ya son conexión"
+                          : solicitudPendiente
+                          ? "Solicitud pendiente"
+                          : "Estado: interesado"}
                       </Text>
                     </View>
 
                     {yaEsAmigo ? (
                       <View style={styles.friendButton}>
                         <CheckCircle size={22} color="#12A150" />
+                      </View>
+                    ) : solicitudPendiente ? (
+                      <View style={styles.pendingButton}>
+                        <Clock3 size={21} color="#8B35E8" />
                       </View>
                     ) : (
                       <TouchableOpacity
@@ -534,6 +605,9 @@ const styles = StyleSheet.create({
   friendStatusText: {
     color: "#12A150",
   },
+  pendingStatusText: {
+    color: "#8B35E8",
+  },
   connectButton: {
     width: 54,
     height: 38,
@@ -547,6 +621,14 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 20,
     backgroundColor: "#ECFDF3",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendingButton: {
+    width: 54,
+    height: 38,
+    borderRadius: 20,
+    backgroundColor: "#F1ECFF",
     alignItems: "center",
     justifyContent: "center",
   },
