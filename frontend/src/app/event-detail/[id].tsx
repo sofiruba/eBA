@@ -389,5 +389,4 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 17,
     fontWeight: "800",
-  },
-});
+  },});
