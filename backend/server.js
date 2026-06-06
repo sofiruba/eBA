@@ -4,12 +4,16 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 
+
 const usuarioRoutes = require("./routes/usuario.routes");
 const eventoRoutes = require("./routes/evento.routes");
 const asistenciaRoutes = require("./routes/asistencia.routes");
 const solicitudconexionRoutes = require("./routes/solicitudconexion.routes");
 const conexionRoutes = require("./routes/conexion.routes");
-
+const publicacionRoutes = require("./routes/publicacion.routes");
+const comentarioRoutes = require("./routes/comentario.routes");
+const chatRoutes = require("./routes/chat.routes");
+const mensajeRoutes = require("./routes/mensaje.routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -73,6 +77,10 @@ app.use("/api/eventos", eventoRoutes);
 app.use("/api/asistencias", asistenciaRoutes);
 app.use("/api/solicitudes-conexion", solicitudconexionRoutes);
 app.use("/api/conexiones", conexionRoutes);
+app.use("/api/publicaciones", publicacionRoutes);
+app.use("/api/comentarios", comentarioRoutes);
+app.use("/api/chats", chatRoutes);
+app.use("/api/mensajes", mensajeRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
