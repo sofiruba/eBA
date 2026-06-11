@@ -1,5 +1,10 @@
 const express = require("express");
 const router = express.Router();
+const Evento = require("../models/Evento");
+const Conexion = require("../models/Conexion");
+const Notificacion = require("../models/Notificacion");
+const Usuario = require("../models/Usuario");
+
 
 const Evento = require("../models/Evento");
 
@@ -32,6 +37,56 @@ router.get("/promocionados", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: "Error al obtener eventos promocionados",
+      detalle: error.message,
+    });
+  }
+});
+
+
+// Crear evento
+router.post("/", async (req, res) => {
+  try {
+    const nuevoEvento = new Evento(req.body);
+
+    await nuevoEvento.save();
+
+    // Obtener organizador
+    const organizador = await Usuario.findById(
+      nuevoEvento.organizadorId
+    );
+
+    if (organizador) {
+      // Buscar conexiones del organizador
+      const conexiones = await Conexion.find({
+        $or: [
+          { usuario1Id: organizador._id },
+          { usuario2Id: organizador._id },
+        ],
+      });
+
+      // Crear notificaciones
+      for (const conexion of conexiones) {
+        const usuarioNotificar =
+          conexion.usuario1Id.toString() === organizador._id.toString()
+            ? conexion.usuario2Id
+            : conexion.usuario1Id;
+
+        await Notificacion.create({
+          usuarioId: usuarioNotificar,
+          mensaje: `${organizador.nombre} creó un nuevo evento: ${nuevoEvento.nombre}`,
+          tipo: "evento",
+          leida: false,
+        });
+      }
+    }
+
+    res.status(201).json({
+      message: "Evento creado correctamente",
+      evento: nuevoEvento,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al crear evento",
       detalle: error.message,
     });
   }
