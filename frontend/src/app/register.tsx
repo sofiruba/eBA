@@ -9,7 +9,7 @@ import {
   ScrollView,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { EyeOff } from "lucide-react-native";
+import { EyeOff, Eye } from "lucide-react-native";
 import { API_URL } from "../config/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Logo from "@/components/Logo";
@@ -31,6 +31,7 @@ export default function RegisterScreen() {
   const [contrasenia, setContrasenia] = useState("");
   const [edad, setEdad] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
 
   const handleRegister = async () => {
     if (intereses.length === 0) {
@@ -190,12 +191,22 @@ export default function RegisterScreen() {
             <TextInput
               placeholder="123456"
               placeholderTextColor="#A8A5B3"
-              secureTextEntry
+              secureTextEntry={!mostrarContrasenia}
               style={styles.passwordInput}
               value={contrasenia}
               onChangeText={setContrasenia}
             />
-            <EyeOff size={18} color="#A8A5B3" />
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setMostrarContrasenia(!mostrarContrasenia)}
+            >
+              {mostrarContrasenia ? (
+                <Eye size={18} color="#A8A5B3" />
+              ) : (
+                <EyeOff size={18} color="#A8A5B3" />
+              )}
+            </TouchableOpacity>
           </View>
         </View>
 
