@@ -20,6 +20,7 @@ const logActividadRoutes = require("./routes/logActividad.routes");
 const planPromocionRoutes = require("./routes/planPromocion.routes");
 const notificacionRoutes = require("./routes/notificacion.routes");
 const pagoRoutes = require("./routes/pago.routes");
+const promocionEventoRoutes = require("./routes/promocionEvento.routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -93,6 +94,8 @@ app.use("/api/logs-actividad", logActividadRoutes);
 app.use("/api/planes-promocion", planPromocionRoutes);
 app.use("/api/notificaciones", notificacionRoutes);
 app.use("/api/pagos", pagoRoutes);
+app.use("/api/promociones-evento", promocionEventoRoutes);
+
 
 app.use((req, res) => {
   res.status(404).json({
