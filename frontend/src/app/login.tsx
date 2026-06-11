@@ -63,7 +63,7 @@ export default function LoginScreen() {
       if (response.status === 403) {
         alert(
           data.error ||
-            "Tenés que verificar tu email antes de iniciar sesión."
+          "Tenés que verificar tu email antes de iniciar sesión."
         );
 
         router.replace({
@@ -129,7 +129,7 @@ export default function LoginScreen() {
           <EyeOff size={18} color="#A8A5B3" />
         </View>
 
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/forgot-password" as any)}>
           <Text style={styles.forgot}>¿Olvidaste tu contraseña?</Text>
         </TouchableOpacity>
 
