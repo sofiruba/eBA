@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TextInput,
   TouchableOpacity,
 } from "react-native";
@@ -36,8 +35,10 @@ export default function LoginScreen() {
       return;
     }
 
+    const emailNormalizado = email.trim().toLowerCase();
+
     const usuarioLogin = {
-      email: email.trim().toLowerCase(),
+      email: emailNormalizado,
       contrasenia,
     };
 
@@ -59,12 +60,27 @@ export default function LoginScreen() {
 
       console.log("Respuesta login:", data);
 
+      if (response.status === 403) {
+        alert(
+          data.error ||
+            "Tenés que verificar tu email antes de iniciar sesión."
+        );
+
+        router.replace({
+          pathname: "/verify-email",
+          params: { email: emailNormalizado },
+        } as any);
+
+        return;
+      }
+
       if (!response.ok) {
         alert(data.message || data.error || "Email o contraseña incorrectos.");
         return;
       }
 
       alert("Inicio de sesión exitoso.");
+
       await AsyncStorage.setItem("usuario", JSON.stringify(data.usuario));
 
       if (data.token) {
@@ -130,6 +146,7 @@ export default function LoginScreen() {
 
         <View style={styles.registerRow}>
           <Text style={styles.smallText}>¿No tenés cuenta? </Text>
+
           <TouchableOpacity
             onPress={() => router.push("/register-interests" as any)}
           >

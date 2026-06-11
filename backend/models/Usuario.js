@@ -35,6 +35,22 @@ const usuarioSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    emailVerificado: {
+      type: Boolean,
+      default: false,
+    },
+    codigoVerificacion: {
+      type: String,
+    },
+    codigoVerificacionExpira: {
+      type: Date,
+    },
+    codigoResetPassword: {
+      type: String,
+    },
+    codigoResetPasswordExpira: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
