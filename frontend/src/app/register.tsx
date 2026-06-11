@@ -107,9 +107,15 @@ export default function RegisterScreen() {
         alert(data.message || data.error || "Error al registrar usuario.");
         return;
       }
+      alert(
+        data.message ||
+        "Usuario creado correctamente. Revisá tu email para verificar la cuenta."
+      );
 
-      alert("Usuario creado correctamente.");
-      router.replace("/home" as any);
+      router.replace({
+        pathname: "/verify-email",
+        params: { email: email.trim().toLowerCase() },
+      } as any);
     } catch (error) {
       console.log("Error al conectar con backend:", error);
       alert(
@@ -128,7 +134,7 @@ export default function RegisterScreen() {
       >
         <Logo size="large" centered={true} showText={true} />
 
-        
+
 
         <Text style={styles.title}>
           Registrate <Text style={styles.dark}>a eBA</Text>
