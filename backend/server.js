@@ -96,7 +96,6 @@ app.use("/api/notificaciones", notificacionRoutes);
 app.use("/api/pagos", pagoRoutes);
 app.use("/api/promociones-evento", promocionEventoRoutes);
 
-
 app.use((req, res) => {
   res.status(404).json({
     error: "Ruta no encontrada",
