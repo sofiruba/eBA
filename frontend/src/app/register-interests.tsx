@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
+import InterestChips from "../components/InterestChips";
 import Logo from "@/components/Logo";
 import { API_URL } from "../config/api";
 import { Interes } from "../types/Interes";
@@ -79,30 +80,14 @@ export default function RegisterInterestsScreen() {
           <ActivityIndicator size="large" color="#7528F0" />
         ) : (
           <View style={styles.interestsContainer}>
-            {interesesDisponibles.map((interes) => {
-              const isSelected = intereses.includes(interes.slug);
-
-              return (
-                <TouchableOpacity
-                  key={interes.slug}
-                  style={[
-                    styles.interestChip,
-                    isSelected && styles.interestChipSelected,
-                  ]}
-                  onPress={() => toggleInterest(interes.slug)}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.interestText,
-                      isSelected && styles.interestTextSelected,
-                    ]}
-                  >
-                    {interes.nombre}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+            
+                  <InterestChips
+                    intereses={interesesDisponibles}
+                    seleccionados={intereses}
+                    onPress={toggleInterest}
+                    variant="register"
+                  />
+         
           </View>
         )}
 

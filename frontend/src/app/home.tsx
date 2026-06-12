@@ -17,20 +17,21 @@ import LoadingScreen from "../components/LoadingScreen";
 import SectionHeader from "../components/SectionHeader";
 import EventListCard from "../components/EventListCard";
 import EmptyState from "../components/EmptyState";
+import InterestChips from "@/components/InterestChips";
 
 import { Evento } from "../types/Evento";
 
-const categoriasHome = [
-  { label: "Festival", value: "festival" },
-  { label: "Recital", value: "recital" },
-  { label: "Fiesta", value: "fiesta" },
-  { label: "Teatro", value: "teatro" },
-  { label: "Cultura", value: "cultura" },
-  { label: "Gastronomía", value: "gastronomia" },
-];
+type Interes = {
+  _id: string;
+  nombre: string;
+  slug: string;
+  icono?: string;
+};
 
 export default function HomeScreen() {
   const [eventos, setEventos] = useState<Evento[]>([]);
+  const [eventosRecomendados, setEventosRecomendados] = useState<Evento[]>([]);
+  const [categorias, setCategorias] = useState<Interes[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,15 +47,41 @@ export default function HomeScreen() {
         return;
       }
 
-      const response = await fetch(`${API_URL}/api/eventos`);
-      const data = await response.json();
+      const usuario = JSON.parse(usuarioGuardado);
+      const usuarioId = usuario.id || usuario._id;
 
-      if (!response.ok) {
-        alert(data.message || data.error || "Error al traer eventos.");
+      const responseEventos = await fetch(`${API_URL}/api/eventos`);
+      const dataEventos = await responseEventos.json();
+
+      if (!responseEventos.ok) {
+        alert(dataEventos.message || dataEventos.error || "Error al traer eventos.");
         return;
       }
 
-      setEventos(data.eventos || []);
+      setEventos(dataEventos.eventos || []);
+
+      const responseCategorias = await fetch(`${API_URL}/api/intereses`);
+      const dataCategorias = await responseCategorias.json();
+
+      if (responseCategorias.ok) {
+        setCategorias(dataCategorias.intereses || []);
+      } else {
+        console.log("Error al traer categorías:", dataCategorias);
+      }
+
+      if (usuarioId) {
+        const responseRecomendados = await fetch(
+          `${API_URL}/api/eventos/recomendados/${usuarioId}`
+        );
+
+        const dataRecomendados = await responseRecomendados.json();
+
+        if (responseRecomendados.ok) {
+          setEventosRecomendados(dataRecomendados.eventos || []);
+        } else {
+          console.log("Error al traer recomendados:", dataRecomendados);
+        }
+      }
     } catch (error) {
       console.log("Error al iniciar home:", error);
       alert("No se pudo conectar con el servidor.");
@@ -129,8 +156,10 @@ export default function HomeScreen() {
     router.push(`/explore?categoria=${categoria}` as any);
   };
 
+  const irAExploreRecomendados = () => {
+    router.push("/explore?filtro=recomendados" as any);
+  };
   const eventosDestacados = eventos.filter((evento) => evento.esPromocionado);
-  const eventosRecomendados = eventos.filter((evento) => !evento.esPromocionado);
 
   const destacadosParaMostrar =
     eventosDestacados.length > 0
@@ -140,7 +169,7 @@ export default function HomeScreen() {
   const recomendadosParaMostrar =
     eventosRecomendados.length > 0
       ? eventosRecomendados.slice(0, 4)
-      : eventos.slice(2, 6);
+      : eventos.filter((evento) => !evento.esPromocionado).slice(0, 4);
 
   if (loading) {
     return <LoadingScreen text="Cargando eventos..." />;
@@ -158,8 +187,8 @@ export default function HomeScreen() {
         <Text style={styles.title}>¿Qué te pinta hoy?</Text>
 
         <Pressable style={styles.searchBox} onPress={irAExplore}>
-          <Search size={18} color="#A7A7B0" />
-          <Text style={styles.fakeInput}>Buscar eventos, personas...</Text>
+          <Search size={18} color="#eaeaf9" />
+          <Text style={styles.fakeInput}>Buscar eventos...</Text>
         </Pressable>
 
         <ScrollView
@@ -168,22 +197,11 @@ export default function HomeScreen() {
           style={styles.categories}
           contentContainerStyle={styles.categoriesContent}
         >
-          {categoriasHome.map((item, index) => (
-            <Pressable
-              key={item.value}
-              style={[styles.category, index === 0 && styles.categoryActive]}
-              onPress={() => irAExploreCategoria(item.value)}
-            >
-              <Text
-                style={[
-                  styles.categoryText,
-                  index === 0 && styles.categoryTextActive,
-                ]}
-              >
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
+          <InterestChips
+            intereses={categorias}
+            onPress={irAExploreCategoria}
+            variant="home"
+          />
         </ScrollView>
 
         <SectionHeader
@@ -210,9 +228,9 @@ export default function HomeScreen() {
             </View>
 
             <SectionHeader
-              title="Recomendados"
+              title="Recomendados para vos"
               actionText="Ver todos"
-              onPress={irAExploreTodos}
+              onPress={irAExploreRecomendados}
             />
 
             <View style={styles.recommendedList}>
@@ -240,37 +258,45 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingTop: 70,
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     paddingBottom: 140,
   },
   title: {
-    fontSize: 30,
-    fontWeight: "700",
+    fontSize: 28,
+    fontWeight: "800",
     color: "#332047",
-    marginBottom: 22,
+    marginBottom: 18,
   },
   searchBox: {
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#EEF5FF",
+    height: 50,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#D6E8FF",
+    borderColor: "#E6E0F4",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
-    marginBottom: 26,
+    paddingHorizontal: 16,
+    marginBottom: 22,
+
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
   fakeInput: {
     marginLeft: 10,
-    fontSize: 15,
-    color: "#A7A7B0",
+    fontSize: 14,
+    color: "#9A96A8",
+    fontWeight: "500",
   },
-  categories: {
-    marginBottom: 28,
-  },
-  categoriesContent: {
-    paddingRight: 16,
-  },
+categories: {
+  marginBottom: 28,
+},
+categoriesContent: {
+  paddingRight: 16,
+  alignItems: "center",
+},
   category: {
     paddingHorizontal: 18,
     paddingVertical: 10,
