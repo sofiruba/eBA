@@ -8,59 +8,86 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /*
-  Cargador seguro de rutas:
-  Si una ruta rompe por un import, passport, modelo, etc.,
-  no tira abajo todo el server. Lo muestra en logs y sigue.
+  Carga segura de rutas:
+  Si una ruta rompe por passport, imports, modelo, etc.,
+  no se cae todo el backend. La marca como "NO CARGÓ".
 */
+const rutasEstado = {};
+
 const cargarRuta = (nombre, path) => {
   try {
     const ruta = require(path);
+
     console.log(`Ruta cargada OK: ${nombre}`);
+
+    rutasEstado[nombre] = {
+      estado: "OK",
+      error: null,
+    };
+
     return ruta;
   } catch (error) {
     console.error(`ERROR cargando ruta ${nombre}:`);
     console.error(error.message);
     console.error(error.stack);
+
+    rutasEstado[nombre] = {
+      estado: "NO CARGÓ",
+      error: error.message,
+    };
+
     return null;
   }
 };
 
+// Rutas
 const usuarioRoutes = cargarRuta("usuarios", "./routes/usuario.routes");
 const eventoRoutes = cargarRuta("eventos", "./routes/evento.routes");
 const asistenciaRoutes = cargarRuta("asistencias", "./routes/asistencia.routes");
+
 const solicitudconexionRoutes = cargarRuta(
-  "solicitudes-conexion",
+  "solicitudesConexion",
   "./routes/solicitudconexion.routes"
 );
+
 const conexionRoutes = cargarRuta("conexiones", "./routes/conexion.routes");
+
 const publicacionRoutes = cargarRuta(
   "publicaciones",
   "./routes/publicacion.routes"
 );
+
 const comentarioRoutes = cargarRuta("comentarios", "./routes/comentario.routes");
 const chatRoutes = cargarRuta("chats", "./routes/chat.routes");
 const mensajeRoutes = cargarRuta("mensajes", "./routes/mensaje.routes");
 const favoritoRoutes = cargarRuta("favoritos", "./routes/favorito.routes");
 const reporteRoutes = cargarRuta("reportes", "./routes/reportes.routes");
+
 const logActividadRoutes = cargarRuta(
-  "logs-actividad",
+  "logsActividad",
   "./routes/logActividad.routes"
 );
+
 const planPromocionRoutes = cargarRuta(
-  "planes-promocion",
+  "planesPromocion",
   "./routes/planPromocion.routes"
 );
+
 const notificacionRoutes = cargarRuta(
   "notificaciones",
   "./routes/notificacion.routes"
 );
+
 const pagoRoutes = cargarRuta("pagos", "./routes/pago.routes");
+
 const promocionEventoRoutes = cargarRuta(
-  "promociones-evento",
+  "promocionesEvento",
   "./routes/promocionEvento.routes"
 );
+
 const interesRoutes = cargarRuta("intereses", "./routes/interes.routes");
 
+// Middlewares
 app.use(
   cors({
     origin: "*",
@@ -77,11 +104,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// Logs de entorno
 console.log("NODE_ENV:", process.env.NODE_ENV);
 console.log("MONGO_URI cargada:", process.env.MONGO_URI ? "Sí" : "No");
 console.log("EMAIL_USER cargado:", process.env.EMAIL_USER ? "Sí" : "No");
 console.log("EMAIL_PASS cargado:", process.env.EMAIL_PASS ? "Sí" : "No");
 
+// Mongo
 if (!process.env.MONGO_URI) {
   console.error("Falta MONGO_URI en variables de entorno");
 } else {
@@ -99,6 +128,7 @@ if (!process.env.MONGO_URI) {
     });
 }
 
+// Favicons para que no molesten
 app.get("/favicon.ico", (req, res) => {
   res.status(204).end();
 });
@@ -107,6 +137,7 @@ app.get("/favicon.png", (req, res) => {
   res.status(204).end();
 });
 
+// Rutas básicas
 app.get("/", (req, res) => {
   res.json({
     message: "API de eBA funcionando",
@@ -129,6 +160,29 @@ app.get("/test-mongo", (req, res) => {
   });
 });
 
+// Debug para saber qué rutas cargaron
+app.get("/debug-routes", (req, res) => {
+  res.json({
+    message: "Estado de carga de rutas",
+    rutas: rutasEstado,
+  });
+});
+
+// Debug para saber si Vercel tiene variables
+app.get("/debug-env", (req, res) => {
+  res.json({
+    message: "Estado de variables de entorno",
+    mongo: process.env.MONGO_URI ? "OK" : "FALTA",
+    emailUser: process.env.EMAIL_USER ? "OK" : "FALTA",
+    emailPass: process.env.EMAIL_PASS ? "OK" : "FALTA",
+    googleClientId: process.env.GOOGLE_CLIENT_ID ? "OK" : "FALTA",
+    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? "OK" : "FALTA",
+    googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL ? "OK" : "FALTA",
+    nodeEnv: process.env.NODE_ENV,
+  });
+});
+
+// Montar rutas solo si cargaron bien
 if (usuarioRoutes) app.use("/api/usuarios", usuarioRoutes);
 if (eventoRoutes) app.use("/api/eventos", eventoRoutes);
 if (asistenciaRoutes) app.use("/api/asistencias", asistenciaRoutes);
@@ -155,6 +209,7 @@ if (promocionEventoRoutes) {
 
 if (interesRoutes) app.use("/api/intereses", interesRoutes);
 
+// Manejo de errores internos
 app.use((err, req, res, next) => {
   console.error("Error interno del servidor:");
   console.error(err.message);
@@ -166,6 +221,7 @@ app.use((err, req, res, next) => {
   });
 });
 
+// 404 final
 app.use((req, res) => {
   res.status(404).json({
     error: "Ruta no encontrada",
@@ -173,6 +229,7 @@ app.use((req, res) => {
   });
 });
 
+// Local sí escucha puerto, Vercel no
 if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Servidor Express escuchando en http://0.0.0.0:${PORT}`);
