@@ -1,34 +1,52 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import Logo from "@/components/Logo";
-const availableInterests = [
-  "techno",
-  "festivales",
-  "jazz",
-  "recitales",
-  "arte",
-  "teatro",
-  "gastronomía",
-  "indie",
-  "pop",
-];
+import { API_URL } from "../config/api";
+import { Interes } from "../types/Interes";
 
 export default function RegisterInterestsScreen() {
+  const [interesesDisponibles, setInteresesDisponibles] = useState<Interes[]>([]);
   const [intereses, setIntereses] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const toggleInterest = (interest: string) => {
-    if (intereses.includes(interest)) {
-      setIntereses(intereses.filter((item) => item !== interest));
+  useEffect(() => {
+    const cargarIntereses = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/intereses`);
+        const data = await response.json();
+
+        console.log("Status intereses:", response.status);
+        console.log("Respuesta intereses:", data);
+
+        if (!response.ok) {
+          console.log("Error al obtener intereses:", data.error);
+          return;
+        }
+
+        setInteresesDisponibles(data.intereses || []);
+      } catch (error) {
+        console.log("Error al cargar intereses:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarIntereses();
+  }, []);
+
+  const toggleInterest = (slug: string) => {
+    if (intereses.includes(slug)) {
+      setIntereses(intereses.filter((item) => item !== slug));
     } else {
-      setIntereses([...intereses, interest]);
+      setIntereses([...intereses, slug]);
     }
   };
 
@@ -47,7 +65,7 @@ export default function RegisterInterestsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
       >
-       <Logo size="large" centered={true} showText={true} />
+        <Logo size="large" centered={true} showText={true} />
 
         <Text style={styles.title}>
           Elegí tus <Text style={styles.highlight}>intereses</Text>
@@ -57,32 +75,36 @@ export default function RegisterInterestsScreen() {
           Esto nos ayuda a mostrarte eventos y personas más afines a vos.
         </Text>
 
-        <View style={styles.interestsContainer}>
-          {availableInterests.map((interest) => {
-            const isSelected = intereses.includes(interest);
+        {loading ? (
+          <ActivityIndicator size="large" color="#7528F0" />
+        ) : (
+          <View style={styles.interestsContainer}>
+            {interesesDisponibles.map((interes) => {
+              const isSelected = intereses.includes(interes.slug);
 
-            return (
-              <TouchableOpacity
-                key={interest}
-                style={[
-                  styles.interestChip,
-                  isSelected && styles.interestChipSelected,
-                ]}
-                onPress={() => toggleInterest(interest)}
-                activeOpacity={0.8}
-              >
-                <Text
+              return (
+                <TouchableOpacity
+                  key={interes.slug}
                   style={[
-                    styles.interestText,
-                    isSelected && styles.interestTextSelected,
+                    styles.interestChip,
+                    isSelected && styles.interestChipSelected,
                   ]}
+                  onPress={() => toggleInterest(interes.slug)}
+                  activeOpacity={0.8}
                 >
-                  {interest}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                  <Text
+                    style={[
+                      styles.interestText,
+                      isSelected && styles.interestTextSelected,
+                    ]}
+                  >
+                    {interes.nombre}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         <TouchableOpacity
           style={[
