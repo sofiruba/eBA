@@ -21,9 +21,6 @@ const notificacionRoutes = require("./routes/notificacion.routes");
 const pagoRoutes = require("./routes/pago.routes");
 const promocionEventoRoutes = require("./routes/promocionEvento.routes");
 const interesRoutes = require("./routes/interes.routes");
-const passport = require("./utils/passport");
-const bloqueoRoutes = require("./routes/bloqueo.routes");
-
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,8 +33,6 @@ app.use(
   })
 );
 
-// Esto arregla el error: PayloadTooLargeError: request entity too large
-// Es necesario porque la foto de perfil se manda como base64 dentro del JSON.
 app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ limit: "30mb", extended: true }));
 
@@ -47,32 +42,36 @@ app.use((req, res, next) => {
 });
 
 console.log("MONGO_URI cargada:", process.env.MONGO_URI ? "Sí" : "No");
-console.log(
-  "Base detectada:",
-  process.env.MONGO_URI?.split(".net/")[1]?.split("?")[0]
-);
 
-mongoose
-  .connect(process.env.MONGO_URI, {
-    serverSelectionTimeoutMS: 5000,
-  })
-  .then(() => {
-    console.log("MongoDB Atlas conectado correctamente");
-  })
-  .catch((error) => {
-    console.error("Error conectando a MongoDB:");
-    console.error(error.message);
-  });
+if (!process.env.MONGO_URI) {
+  console.error("Falta MONGO_URI en variables de entorno");
+} else {
+  mongoose
+    .connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000,
+    })
+    .then(() => {
+      console.log("MongoDB Atlas conectado correctamente");
+      console.log("Base conectada:", mongoose.connection.name);
+    })
+    .catch((error) => {
+      console.error("Error conectando a MongoDB:");
+      console.error(error.message);
+    });
+}
+
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end();
+});
 
 app.get("/", (req, res) => {
   res.json({
     message: "API de eBA funcionando con MongoDB",
+    status: "ok",
   });
 });
 
 app.get("/ping", (req, res) => {
-  console.log("Entró a /ping");
-
   res.json({
     message: "pong",
   });
@@ -104,14 +103,21 @@ app.use("/api/notificaciones", notificacionRoutes);
 app.use("/api/pagos", pagoRoutes);
 app.use("/api/promociones-evento", promocionEventoRoutes);
 app.use("/api/intereses", interesRoutes);
-app.use("/api/bloqueos", bloqueoRoutes);
 
-app.get("/favicon.ico", (req, res) => {
-  res.status(204).end();
+app.use((err, req, res, next) => {
+  console.error("Error interno del servidor:");
+  console.error(err);
+
+  res.status(500).json({
+    error: "Error interno del servidor",
+    detalle: err.message,
+  });
 });
+
 app.use((req, res) => {
   res.status(404).json({
     error: "Ruta no encontrada",
+    ruta: req.originalUrl,
   });
 });
 
