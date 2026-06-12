@@ -10,7 +10,7 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { Search, SlidersHorizontal } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import {Interes } from '../types/Interes'
 import Logo from "../components/Logo";
 import { API_URL } from "../config/api";
 import BottomNav from "../components/BottomNav";
@@ -18,7 +18,7 @@ import LoadingScreen from "../components/LoadingScreen";
 import EmptyState from "../components/EmptyState";
 import EventListCard from "../components/EventListCard";
 import SectionHeader from "../components/SectionHeader";
-import InterestChips, { Interes } from "../components/InterestChips";
+import InterestChips from "../components/InterestChips";
 
 import { Evento } from "../types/Evento";
 
@@ -365,7 +365,7 @@ export default function ExploreScreen() {
             <Search size={18} color="#A7A7B0" />
 
             <TextInput
-              placeholder="Buscar eventos, personas..."
+              placeholder="Buscar eventos..."
               placeholderTextColor="#A7A7B0"
               style={styles.input}
               value={textoBusqueda}

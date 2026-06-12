@@ -61,7 +61,30 @@ router.get("/evento/:eventoId", async (req, res) => {
     });
   }
 });
+// Obtener publicación por id
+router.get("/:id", async (req, res) => {
+  try {
+    const publicacion = await Publicacion.findById(req.params.id)
+      .populate("usuarioId", "nombre email fotoPerfil intereses bio")
+      .populate("eventoId", "nombre fecha categoria imagen ubicacion organizador");
 
+    if (!publicacion) {
+      return res.status(404).json({
+        error: "Publicación no encontrada",
+      });
+    }
+
+    res.json({
+      message: "Publicación obtenida correctamente",
+      publicacion,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al obtener publicación",
+      detalle: error.message,
+    });
+  }
+});
 // Eliminar publicación
 router.delete("/:id", async (req, res) => {
   try {

@@ -12,6 +12,11 @@ const comentarioSchema = new mongoose.Schema(
       ref: "Usuario",
       required: true,
     },
+    comentarioPadreId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Comentario",
+      default: null,
+    },
     contenido: {
       type: String,
       required: true,

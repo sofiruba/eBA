@@ -6,6 +6,7 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
+  TextInput,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -23,8 +24,13 @@ import EmptyState from "../../components/EmptyState";
 import UserAvatar from "../../components/UserAvatar";
 import SectionHeader from "../../components/SectionHeader";
 
+import CreatePublicationModal from "../../components/publications/CreatePublicationModal";
+import PublicationPreviewCard from "../../components/publications/PublicationPreviewCard";
+
 import { Evento } from "../../types/Evento";
 import { Usuario } from "../../types/Usuario";
+import { Publicacion, Comentario } from "../../types/Social";
+
 import { obtenerImagen, formatearFechaLarga } from "../../utils/eventHelpers";
 
 type Asistencia = {
@@ -56,11 +62,24 @@ export default function EventPeopleScreen() {
   const [solicitudesPendientesIds, setSolicitudesPendientesIds] = useState<
     string[]
   >([]);
+
   const [loading, setLoading] = useState(true);
   const [usuarioActualId, setUsuarioActualId] = useState<string | null>(null);
+  const [usuarioActual, setUsuarioActual] = useState<Usuario | null>(null);
+
   const [tabActiva, setTabActiva] = useState<
     "personas" | "publicaciones" | "info"
   >("personas");
+
+  const [busquedaPersonas, setBusquedaPersonas] = useState("");
+
+  const [publicaciones, setPublicaciones] = useState<Publicacion[]>([]);
+  const [comentariosPorPublicacion, setComentariosPorPublicacion] = useState<
+    Record<string, Comentario[]>
+  >({});
+  const [nuevaPublicacion, setNuevaPublicacion] = useState("");
+  const [loadingPublicaciones, setLoadingPublicaciones] = useState(false);
+  const [modalPublicacionVisible, setModalPublicacionVisible] = useState(false);
 
   useEffect(() => {
     iniciarPantalla();
@@ -85,6 +104,7 @@ export default function EventPeopleScreen() {
       }
 
       setUsuarioActualId(idUsuario);
+      setUsuarioActual(usuario);
 
       if (!id) {
         alert("No se encontró el evento.");
@@ -117,6 +137,8 @@ export default function EventPeopleScreen() {
       }
 
       setAsistencias(dataAsistencias.asistencias || []);
+
+      await cargarPublicaciones(String(id));
 
       const responseConexiones = await fetch(
         `${API_URL}/api/conexiones/usuario/${idUsuario}`
@@ -169,6 +191,106 @@ export default function EventPeopleScreen() {
     }
   };
 
+  const cargarPublicaciones = async (eventoId: string) => {
+    try {
+      setLoadingPublicaciones(true);
+
+      const response = await fetch(
+        `${API_URL}/api/publicaciones/evento/${eventoId}`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.log("Error al traer publicaciones:", data);
+        return;
+      }
+
+      const publicacionesObtenidas = data.publicaciones || [];
+      setPublicaciones(publicacionesObtenidas);
+
+      const comentariosTemp: Record<string, Comentario[]> = {};
+
+      for (const publicacion of publicacionesObtenidas) {
+        const responseComentarios = await fetch(
+          `${API_URL}/api/comentarios/publicacion/${publicacion._id}`
+        );
+
+        const dataComentarios = await responseComentarios.json();
+
+        if (responseComentarios.ok) {
+          comentariosTemp[publicacion._id] = dataComentarios.comentarios || [];
+        } else {
+          comentariosTemp[publicacion._id] = [];
+        }
+      }
+
+      setComentariosPorPublicacion(comentariosTemp);
+    } catch (error) {
+      console.log("Error cargando publicaciones:", error);
+    } finally {
+      setLoadingPublicaciones(false);
+    }
+  };
+
+  const crearPublicacion = async () => {
+    try {
+      if (!nuevaPublicacion.trim()) {
+        alert("Escribí algo para publicar.");
+        return;
+      }
+
+      if (!usuarioActualId || !id) {
+        alert("No se pudo identificar usuario o evento.");
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/publicaciones`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          usuarioId: usuarioActualId,
+          eventoId: String(id),
+          contenido: nuevaPublicacion.trim(),
+          imagen: "",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "No se pudo crear la publicación.");
+        return;
+      }
+
+      const publicacionNueva: Publicacion = {
+        ...data.publicacion,
+        usuarioId:
+          usuarioActual ||
+          ({
+            _id: usuarioActualId,
+            nombre: "Yo",
+          } as Usuario),
+        createdAt: data.publicacion.createdAt || new Date().toISOString(),
+      };
+
+      setPublicaciones((prev) => [publicacionNueva, ...prev]);
+
+      setComentariosPorPublicacion((prev) => ({
+        ...prev,
+        [publicacionNueva._id]: [],
+      }));
+
+      setNuevaPublicacion("");
+      setModalPublicacionVisible(false);
+    } catch (error) {
+      console.log("Error al crear publicación:", error);
+      alert("No se pudo conectar con el servidor.");
+    }
+  };
+
   const enviarSolicitudConexion = async (usuarioReceptorId?: string) => {
     try {
       const usuarioGuardado = await AsyncStorage.getItem("usuario");
@@ -203,8 +325,6 @@ export default function EventPeopleScreen() {
       });
 
       const data = await response.json();
-
-      console.log("Respuesta solicitud conexión:", data);
 
       if (!response.ok) {
         alert(data.mensaje || "No se pudo enviar la solicitud.");
@@ -258,6 +378,25 @@ export default function EventPeopleScreen() {
   const asistenciasFiltradas = asistencias.filter((asistencia) => {
     const idUsuario = obtenerUsuarioId(asistencia.usuarioId);
     return idUsuario !== usuarioActualId;
+  });
+
+  const personasFiltradas = asistenciasFiltradas.filter((asistencia) => {
+    const usuario = asistencia.usuarioId;
+    const texto = busquedaPersonas.toLowerCase().trim();
+
+    if (!texto) return true;
+
+    const nombre = usuario?.nombre?.toLowerCase() || "";
+    const email = usuario?.email?.toLowerCase() || "";
+    const bio = usuario?.bio?.toLowerCase() || "";
+    const intereses = usuario?.intereses?.join(" ").toLowerCase() || "";
+
+    return (
+      nombre.includes(texto) ||
+      email.includes(texto) ||
+      bio.includes(texto) ||
+      intereses.includes(texto)
+    );
   });
 
   if (loading) {
@@ -364,13 +503,28 @@ export default function EventPeopleScreen() {
 
         {tabActiva === "personas" && (
           <View style={styles.peopleList}>
+            <View style={styles.peopleSearchBox}>
+              <TextInput
+                style={styles.peopleSearchInput}
+                placeholder="Buscar personas por nombre o intereses..."
+                placeholderTextColor="#A7A7B0"
+                value={busquedaPersonas}
+                onChangeText={setBusquedaPersonas}
+              />
+            </View>
+
             {asistenciasFiltradas.length === 0 ? (
               <EmptyState
                 title="Todavía no hay otros interesados"
                 text="Cuando otras personas toquen “Quiero ir”, van a aparecer en esta lista."
               />
+            ) : personasFiltradas.length === 0 ? (
+              <EmptyState
+                title="No encontramos personas"
+                text="Probá buscar otro nombre, email o interés."
+              />
             ) : (
-              asistenciasFiltradas.map((asistencia) => {
+              personasFiltradas.map((asistencia) => {
                 const usuario = asistencia.usuarioId;
                 const receptorId = obtenerUsuarioId(usuario);
                 const yaEsAmigo = esAmigo(receptorId);
@@ -388,6 +542,12 @@ export default function EventPeopleScreen() {
                       <Text style={styles.personSubtitle}>
                         {usuario?.email || "Sin email disponible"}
                       </Text>
+
+                      {usuario?.intereses && usuario.intereses.length > 0 && (
+                        <Text style={styles.personInterests}>
+                          {usuario.intereses.join(", ")}
+                        </Text>
+                      )}
 
                       <Text
                         style={[
@@ -429,10 +589,42 @@ export default function EventPeopleScreen() {
         )}
 
         {tabActiva === "publicaciones" && (
-          <EmptyState
-            title="Todavía no hay publicaciones"
-            text="En el próximo sprint se van a poder ver publicaciones y comentarios relacionados a este evento."
-          />
+          <View style={styles.publicacionesContainer}>
+            <TouchableOpacity
+              style={styles.openPostButton}
+              activeOpacity={0.85}
+              onPress={() => setModalPublicacionVisible(true)}
+            >
+              <Plus size={20} color="#FFFFFF" />
+              <Text style={styles.openPostButtonText}>Crear publicación</Text>
+            </TouchableOpacity>
+
+            {loadingPublicaciones ? (
+              <Text style={styles.loadingPublicacionesText}>
+                Cargando publicaciones...
+              </Text>
+            ) : publicaciones.length === 0 ? (
+              <EmptyState
+                title="Todavía no hay publicaciones"
+                text="Sé la primera persona en publicar algo sobre este evento."
+              />
+            ) : (
+              publicaciones.map((publicacion) => {
+                const comentarios = comentariosPorPublicacion[publicacion._id] || [];
+
+                return (
+                  <PublicationPreviewCard
+                    key={publicacion._id}
+                    publicacion={publicacion}
+                    comentariosCount={comentarios.length}
+                    onPress={() =>
+                      router.push(`/publication-detail/${publicacion._id}` as any)
+                    }
+                  />
+                );
+              })
+            )}
+          </View>
         )}
 
         {tabActiva === "info" && (
@@ -452,6 +644,18 @@ export default function EventPeopleScreen() {
           </View>
         )}
       </ScrollView>
+
+      <CreatePublicationModal
+        visible={modalPublicacionVisible}
+        usuarioActual={usuarioActual}
+        texto={nuevaPublicacion}
+        onChangeTexto={setNuevaPublicacion}
+        onClose={() => {
+          setModalPublicacionVisible(false);
+          setNuevaPublicacion("");
+        }}
+        onPublish={crearPublicacion}
+      />
     </View>
   );
 }
@@ -569,16 +773,33 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: "#FFFFFF",
   },
+
   peopleList: {
     paddingBottom: 20,
   },
+  peopleSearchBox: {
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E0D9F4",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    marginBottom: 18,
+  },
+  peopleSearchInput: {
+    fontSize: 14,
+    color: "#332047",
+    outlineStyle: "none" as any,
+  },
   personCard: {
-    minHeight: 72,
+    minHeight: 76,
     borderRadius: 34,
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
+    paddingVertical: 10,
     marginBottom: 18,
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.04)",
@@ -595,6 +816,12 @@ const styles = StyleSheet.create({
   personSubtitle: {
     fontSize: 12,
     color: "#8D8A99",
+    marginBottom: 3,
+  },
+  personInterests: {
+    fontSize: 11,
+    color: "#8B35E8",
+    fontWeight: "700",
     marginBottom: 3,
   },
   statusText: {
@@ -632,6 +859,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
+  publicacionesContainer: {
+    paddingBottom: 24,
+  },
+  openPostButton: {
+    height: 50,
+    borderRadius: 24,
+    backgroundColor: "#8B35E8",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  openPostButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+    marginLeft: 8,
+  },
+  loadingPublicacionesText: {
+    textAlign: "center",
+    color: "#8D8A99",
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 12,
+  },
+
   infoCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,

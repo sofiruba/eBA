@@ -3,15 +3,35 @@ const router = express.Router();
 
 const Comentario = require("../models/Comentario");
 
-// Crear comentario
+// Crear comentario o respuesta
 router.post("/", async (req, res) => {
   try {
-    const comentario = new Comentario(req.body);
+    const { publicacionId, usuarioId, contenido, comentarioPadreId } = req.body;
+
+    if (!publicacionId || !usuarioId || !contenido) {
+      return res.status(400).json({
+        error: "publicacionId, usuarioId y contenido son obligatorios",
+      });
+    }
+
+    const comentario = new Comentario({
+      publicacionId,
+      usuarioId,
+      contenido,
+      comentarioPadreId: comentarioPadreId || null,
+    });
+
     await comentario.save();
 
+    const comentarioPopulado = await Comentario.findById(comentario._id)
+      .populate("usuarioId", "nombre email fotoPerfil intereses bio")
+      .populate("comentarioPadreId");
+
     res.status(201).json({
-      message: "Comentario creado correctamente",
-      comentario,
+      message: comentarioPadreId
+        ? "Respuesta creada correctamente"
+        : "Comentario creado correctamente",
+      comentario: comentarioPopulado,
     });
   } catch (error) {
     res.status(500).json({
@@ -27,7 +47,7 @@ router.get("/publicacion/:publicacionId", async (req, res) => {
     const comentarios = await Comentario.find({
       publicacionId: req.params.publicacionId,
     })
-      .populate("usuarioId", "nombre email")
+      .populate("usuarioId", "nombre email fotoPerfil intereses bio")
       .sort({ createdAt: 1 });
 
     res.json({
@@ -42,7 +62,7 @@ router.get("/publicacion/:publicacionId", async (req, res) => {
   }
 });
 
-// Eliminar comentario
+// Eliminar comentario y sus respuestas
 router.delete("/:id", async (req, res) => {
   try {
     const comentario = await Comentario.findByIdAndDelete(req.params.id);
@@ -53,8 +73,12 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
+    await Comentario.deleteMany({
+      comentarioPadreId: req.params.id,
+    });
+
     res.json({
-      message: "Comentario eliminado correctamente",
+      message: "Comentario y respuestas eliminados correctamente",
     });
   } catch (error) {
     res.status(500).json({
@@ -73,7 +97,7 @@ router.put("/:id", async (req, res) => {
         contenido: req.body.contenido,
       },
       { new: true }
-    );
+    ).populate("usuarioId", "nombre email fotoPerfil intereses bio");
 
     if (!comentario) {
       return res.status(404).json({
