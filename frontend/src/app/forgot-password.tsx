@@ -1,4 +1,5 @@
 import { useState } from "react";
+
 import {
   View,
   Text,
@@ -8,7 +9,7 @@ import {
   ScrollView,
 } from "react-native";
 import { router } from "expo-router";
-import { EyeOff, MailCheck, ArrowLeft } from "lucide-react-native";
+import { EyeOff, MailCheck, ArrowLeft, Eye } from "lucide-react-native";
 
 import { API_URL } from "../config/api";
 import Logo from "@/components/Logo";
@@ -19,7 +20,7 @@ export default function ForgotPasswordScreen() {
   const [nuevaContrasenia, setNuevaContrasenia] = useState("");
   const [codigoEnviado, setCodigoEnviado] = useState(false);
   const [loading, setLoading] = useState(false);
-
+const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
   const pedirCodigo = async () => {
     if (!email.trim()) {
       alert("Ingresá tu email.");
@@ -204,13 +205,24 @@ export default function ForgotPasswordScreen() {
 
               <View style={styles.passwordBox}>
                 <TextInput
-                  placeholder="Nueva contraseña"
-                  placeholderTextColor="#A8A5B3"
-                  secureTextEntry
-                  style={styles.passwordInput}
-                  value={nuevaContrasenia}
-                  onChangeText={setNuevaContrasenia}
-                />
+  placeholder="Nueva contraseña"
+  placeholderTextColor="#A8A5B3"
+  secureTextEntry={!mostrarContrasenia}
+  style={styles.passwordInput}
+  value={nuevaContrasenia}
+  onChangeText={setNuevaContrasenia}
+/>
+
+<TouchableOpacity
+  activeOpacity={0.8}
+  onPress={() => setMostrarContrasenia(!mostrarContrasenia)}
+>
+  {mostrarContrasenia ? (
+    <Eye size={18} color="#A8A5B3" />
+  ) : (
+    <EyeOff size={18} color="#A8A5B3" />
+  )}
+</TouchableOpacity>
 
                 <EyeOff size={18} color="#A8A5B3" />
               </View>

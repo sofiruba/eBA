@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TextInput,
   ScrollView,
   TouchableOpacity,
@@ -11,6 +10,7 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { Search, SlidersHorizontal } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import Logo from "../components/Logo";
 import { API_URL } from "../config/api";
 import BottomNav from "../components/BottomNav";
@@ -18,18 +18,9 @@ import LoadingScreen from "../components/LoadingScreen";
 import EmptyState from "../components/EmptyState";
 import EventListCard from "../components/EventListCard";
 import SectionHeader from "../components/SectionHeader";
+import InterestChips, { Interes } from "../components/InterestChips";
 
 import { Evento } from "../types/Evento";
-
-const categorias = [
-  "festival",
-  "recital",
-  "fiesta",
-  "teatro",
-  "cultura",
-  "gastronomia",
-  "networking",
-];
 
 const busquedasPopulares = [
   "Lollapalooza",
@@ -44,11 +35,13 @@ export default function ExploreScreen() {
   const params = useLocalSearchParams();
 
   const [eventos, setEventos] = useState<Evento[]>([]);
+  const [interesesDisponibles, setInteresesDisponibles] = useState<Interes[]>([]);
   const [textoBusqueda, setTextoBusqueda] = useState("");
   const [loading, setLoading] = useState(true);
   const [buscoAlgo, setBuscoAlgo] = useState(false);
   const [categoriaActiva, setCategoriaActiva] = useState("");
   const [favoritos, setFavoritos] = useState<string[]>([]);
+  const [tituloPersonalizado, setTituloPersonalizado] = useState("");
 
   useEffect(() => {
     const iniciarPantalla = async () => {
@@ -65,11 +58,23 @@ export default function ExploreScreen() {
         const favoritosGuardados = await AsyncStorage.getItem("favoritos");
         setFavoritos(favoritosGuardados ? JSON.parse(favoritosGuardados) : []);
 
+        await cargarIntereses();
+
         if (params.filtro === "promocionados") {
           setBuscoAlgo(true);
           setCategoriaActiva("");
           setTextoBusqueda("");
+          setTituloPersonalizado("Eventos destacados");
           await obtenerEventosPromocionados();
+          return;
+        }
+
+        if (params.filtro === "recomendados") {
+          setBuscoAlgo(true);
+          setCategoriaActiva("");
+          setTextoBusqueda("");
+          setTituloPersonalizado("Recomendados para vos");
+          await obtenerEventosRecomendadosDelUsuario();
           return;
         }
 
@@ -78,7 +83,7 @@ export default function ExploreScreen() {
           return;
         }
 
-        await obtenerEventosRecomendados();
+        await obtenerTodosLosEventos();
       } catch (error) {
         console.log("Error al iniciar búsqueda:", error);
       } finally {
@@ -89,7 +94,35 @@ export default function ExploreScreen() {
     iniciarPantalla();
   }, [params.filtro, params.categoria]);
 
-  const obtenerEventosRecomendados = async () => {
+  const cargarIntereses = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/intereses`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.log("Error al traer intereses:", data);
+        return;
+      }
+
+      setInteresesDisponibles(data.intereses || []);
+    } catch (error) {
+      console.log("Error al cargar intereses:", error);
+    }
+  };
+
+  const obtenerUsuarioId = async () => {
+    const usuarioGuardado = await AsyncStorage.getItem("usuario");
+
+    if (!usuarioGuardado) {
+      router.replace("/login" as any);
+      return null;
+    }
+
+    const usuario = JSON.parse(usuarioGuardado);
+    return usuario.id || usuario._id || null;
+  };
+
+  const obtenerTodosLosEventos = async () => {
     try {
       const response = await fetch(`${API_URL}/api/eventos`);
       const data = await response.json();
@@ -102,8 +135,39 @@ export default function ExploreScreen() {
       setEventos(data.eventos || []);
       setBuscoAlgo(false);
       setCategoriaActiva("");
+      setTituloPersonalizado("");
     } catch (error) {
       console.log("Error al traer eventos:", error);
+      alert("No se pudo conectar con el servidor.");
+    }
+  };
+
+  const obtenerEventosRecomendadosDelUsuario = async () => {
+    try {
+      const usuarioId = await obtenerUsuarioId();
+
+      if (!usuarioId) {
+        alert("No se encontró el usuario logueado.");
+        return;
+      }
+
+      const response = await fetch(
+        `${API_URL}/api/eventos/recomendados/${usuarioId}`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || data.error || "Error al traer recomendados.");
+        return;
+      }
+
+      setEventos(data.eventos || []);
+      setBuscoAlgo(true);
+      setCategoriaActiva("");
+      setTituloPersonalizado("Recomendados para vos");
+    } catch (error) {
+      console.log("Error al traer recomendados:", error);
       alert("No se pudo conectar con el servidor.");
     }
   };
@@ -119,6 +183,8 @@ export default function ExploreScreen() {
       }
 
       setEventos(data.eventos || []);
+      setBuscoAlgo(true);
+      setCategoriaActiva("");
     } catch (error) {
       console.log("Error al traer promocionados:", error);
       alert("No se pudo conectar con el servidor.");
@@ -128,10 +194,11 @@ export default function ExploreScreen() {
   const buscarEventos = async (texto: string) => {
     setTextoBusqueda(texto);
     setCategoriaActiva("");
+    setTituloPersonalizado("");
 
     if (texto.trim().length === 0) {
       setBuscoAlgo(false);
-      await obtenerEventosRecomendados();
+      await obtenerTodosLosEventos();
       return;
     }
 
@@ -162,6 +229,7 @@ export default function ExploreScreen() {
       setBuscoAlgo(true);
       setCategoriaActiva(categoria);
       setTextoBusqueda("");
+      setTituloPersonalizado("");
 
       const response = await fetch(
         `${API_URL}/api/eventos/categoria/${categoria}`
@@ -187,7 +255,8 @@ export default function ExploreScreen() {
     setTextoBusqueda("");
     setCategoriaActiva("");
     setBuscoAlgo(false);
-    await obtenerEventosRecomendados();
+    setTituloPersonalizado("");
+    await obtenerTodosLosEventos();
   };
 
   const toggleFavorito = async (eventoId: string) => {
@@ -261,11 +330,21 @@ export default function ExploreScreen() {
     }
   };
 
+  const obtenerNombreCategoriaActiva = () => {
+    const interes = interesesDisponibles.find(
+      (item) => item.slug === categoriaActiva
+    );
+
+    return interes?.nombre || categoriaActiva;
+  };
+
   const obtenerTituloSeccion = () => {
+    if (tituloPersonalizado) return tituloPersonalizado;
     if (params.filtro === "promocionados") return "Eventos destacados";
-    if (categoriaActiva) return `Eventos de ${categoriaActiva}`;
+    if (params.filtro === "recomendados") return "Recomendados para vos";
+    if (categoriaActiva) return `Eventos de ${obtenerNombreCategoriaActiva()}`;
     if (buscoAlgo) return "Resultados";
-    return "Eventos recomendados";
+    return "Eventos";
   };
 
   if (loading) {
@@ -308,27 +387,12 @@ export default function ExploreScreen() {
           showsHorizontalScrollIndicator={false}
           style={styles.categories}
         >
-          {categorias.map((categoria) => {
-            const activa = categoriaActiva === categoria;
-
-            return (
-              <TouchableOpacity
-                key={categoria}
-                style={[styles.category, activa && styles.categoryActive]}
-                activeOpacity={0.85}
-                onPress={() => filtrarPorCategoria(categoria)}
-              >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    activa && styles.categoryTextActive,
-                  ]}
-                >
-                  {categoria}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          <InterestChips
+            intereses={interesesDisponibles}
+            seleccionado={categoriaActiva}
+            onPress={filtrarPorCategoria}
+            variant="explore"
+          />
         </ScrollView>
 
         {!buscoAlgo && (
@@ -441,28 +505,6 @@ const styles = StyleSheet.create({
   },
   categories: {
     marginBottom: 34,
-  },
-  category: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E0D9F4",
-    marginRight: 12,
-  },
-  categoryActive: {
-    backgroundColor: "#7528F0",
-    borderColor: "#7528F0",
-  },
-  categoryText: {
-    color: "#7528F0",
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "capitalize",
-  },
-  categoryTextActive: {
-    color: "#FFFFFF",
   },
   popularContainer: {
     flexDirection: "row",
