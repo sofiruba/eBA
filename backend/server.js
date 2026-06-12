@@ -22,6 +22,7 @@ const pagoRoutes = require("./routes/pago.routes");
 const promocionEventoRoutes = require("./routes/promocionEvento.routes");
 const interesRoutes = require("./routes/interes.routes");
 const passport = require("./utils/passport");
+const bloqueoRoutes = require("./routes/bloqueo.routes");
 
 
 const app = express();
@@ -103,7 +104,7 @@ app.use("/api/notificaciones", notificacionRoutes);
 app.use("/api/pagos", pagoRoutes);
 app.use("/api/promociones-evento", promocionEventoRoutes);
 app.use("/api/intereses", interesRoutes);
-
+app.use("/api/bloqueos", bloqueoRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
