@@ -6,7 +6,6 @@ const Notificacion = require("../models/Notificacion");
 const Usuario = require("../models/Usuario");
 
 
-const Evento = require("../models/Evento");
 
 // Obtener todos los eventos
 router.get("/", async (req, res) => {
@@ -136,6 +135,38 @@ router.get("/buscar/:texto", async (req, res) => {
   }
 });
 
+// GET /api/eventos/recomendados/:usuarioId
+router.get("/recomendados/:usuarioId", async (req, res) => {
+  try {
+    const { usuarioId } = req.params;
+
+    const usuario = await Usuario.findById(usuarioId);
+
+    if (!usuario) {
+      return res.status(404).json({
+        error: "Usuario no encontrado",
+      });
+    }
+
+    const interesesUsuario = usuario.intereses || [];
+
+    const eventos = await Evento.find({
+      categoria: { $in: interesesUsuario },
+      fecha: { $gte: new Date() },
+    }).sort({ fecha: 1 });
+
+    return res.json({
+      message: "Eventos recomendados obtenidos correctamente",
+      interesesUsuario,
+      eventos,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error al obtener eventos recomendados",
+      detalle: error.message,
+    });
+  }
+});
 // Obtener evento por ID
 router.get("/:id", async (req, res) => {
   try {
@@ -158,5 +189,6 @@ router.get("/:id", async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;
