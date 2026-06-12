@@ -7,87 +7,172 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/*
-  Carga segura de rutas:
-  Si una ruta rompe por passport, imports, modelo, etc.,
-  no se cae todo el backend. La marca como "NO CARGÓ".
-*/
 const rutasEstado = {};
 
-const cargarRuta = (nombre, path) => {
-  try {
-    const ruta = require(path);
+let usuarioRoutes = null;
+let eventoRoutes = null;
+let asistenciaRoutes = null;
+let solicitudconexionRoutes = null;
+let conexionRoutes = null;
+let publicacionRoutes = null;
+let comentarioRoutes = null;
+let chatRoutes = null;
+let mensajeRoutes = null;
+let favoritoRoutes = null;
+let reporteRoutes = null;
+let logActividadRoutes = null;
+let planPromocionRoutes = null;
+let notificacionRoutes = null;
+let pagoRoutes = null;
+let promocionEventoRoutes = null;
+let interesRoutes = null;
 
-    console.log(`Ruta cargada OK: ${nombre}`);
+// IMPORTANTE:
+// En Vercel los require tienen que ser literales.
+// No usar require(path) con variable.
 
-    rutasEstado[nombre] = {
-      estado: "OK",
-      error: null,
-    };
+try {
+  usuarioRoutes = require("./routes/usuario.routes");
+  rutasEstado.usuarios = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.usuarios = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando usuarios:", error.message);
+}
 
-    return ruta;
-  } catch (error) {
-    console.error(`ERROR cargando ruta ${nombre}:`);
-    console.error(error.message);
-    console.error(error.stack);
+try {
+  eventoRoutes = require("./routes/evento.routes");
+  rutasEstado.eventos = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.eventos = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando eventos:", error.message);
+}
 
-    rutasEstado[nombre] = {
-      estado: "NO CARGÓ",
-      error: error.message,
-    };
+try {
+  asistenciaRoutes = require("./routes/asistencia.routes");
+  rutasEstado.asistencias = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.asistencias = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando asistencias:", error.message);
+}
 
-    return null;
-  }
-};
+try {
+  solicitudconexionRoutes = require("./routes/solicitudconexion.routes");
+  rutasEstado.solicitudesConexion = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.solicitudesConexion = {
+    estado: "NO CARGÓ",
+    error: error.message,
+  };
+  console.error("ERROR cargando solicitudesConexion:", error.message);
+}
 
-// Rutas
-const usuarioRoutes = cargarRuta("usuarios", "./routes/usuario.routes");
-const eventoRoutes = cargarRuta("eventos", "./routes/evento.routes");
-const asistenciaRoutes = cargarRuta("asistencias", "./routes/asistencia.routes");
+try {
+  conexionRoutes = require("./routes/conexion.routes");
+  rutasEstado.conexiones = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.conexiones = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando conexiones:", error.message);
+}
 
-const solicitudconexionRoutes = cargarRuta(
-  "solicitudesConexion",
-  "./routes/solicitudconexion.routes"
-);
+try {
+  publicacionRoutes = require("./routes/publicacion.routes");
+  rutasEstado.publicaciones = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.publicaciones = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando publicaciones:", error.message);
+}
 
-const conexionRoutes = cargarRuta("conexiones", "./routes/conexion.routes");
+try {
+  comentarioRoutes = require("./routes/comentario.routes");
+  rutasEstado.comentarios = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.comentarios = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando comentarios:", error.message);
+}
 
-const publicacionRoutes = cargarRuta(
-  "publicaciones",
-  "./routes/publicacion.routes"
-);
+try {
+  chatRoutes = require("./routes/chat.routes");
+  rutasEstado.chats = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.chats = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando chats:", error.message);
+}
 
-const comentarioRoutes = cargarRuta("comentarios", "./routes/comentario.routes");
-const chatRoutes = cargarRuta("chats", "./routes/chat.routes");
-const mensajeRoutes = cargarRuta("mensajes", "./routes/mensaje.routes");
-const favoritoRoutes = cargarRuta("favoritos", "./routes/favorito.routes");
-const reporteRoutes = cargarRuta("reportes", "./routes/reportes.routes");
+try {
+  mensajeRoutes = require("./routes/mensaje.routes");
+  rutasEstado.mensajes = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.mensajes = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando mensajes:", error.message);
+}
 
-const logActividadRoutes = cargarRuta(
-  "logsActividad",
-  "./routes/logActividad.routes"
-);
+try {
+  favoritoRoutes = require("./routes/favorito.routes");
+  rutasEstado.favoritos = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.favoritos = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando favoritos:", error.message);
+}
 
-const planPromocionRoutes = cargarRuta(
-  "planesPromocion",
-  "./routes/planPromocion.routes"
-);
+try {
+  reporteRoutes = require("./routes/reportes.routes");
+  rutasEstado.reportes = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.reportes = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando reportes:", error.message);
+}
 
-const notificacionRoutes = cargarRuta(
-  "notificaciones",
-  "./routes/notificacion.routes"
-);
+try {
+  logActividadRoutes = require("./routes/logActividad.routes");
+  rutasEstado.logsActividad = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.logsActividad = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando logsActividad:", error.message);
+}
 
-const pagoRoutes = cargarRuta("pagos", "./routes/pago.routes");
+try {
+  planPromocionRoutes = require("./routes/planPromocion.routes");
+  rutasEstado.planesPromocion = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.planesPromocion = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando planesPromocion:", error.message);
+}
 
-const promocionEventoRoutes = cargarRuta(
-  "promocionesEvento",
-  "./routes/promocionEvento.routes"
-);
+try {
+  notificacionRoutes = require("./routes/notificacion.routes");
+  rutasEstado.notificaciones = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.notificaciones = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando notificaciones:", error.message);
+}
 
-const interesRoutes = cargarRuta("intereses", "./routes/interes.routes");
+try {
+  pagoRoutes = require("./routes/pago.routes");
+  rutasEstado.pagos = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.pagos = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando pagos:", error.message);
+}
 
-// Middlewares
+try {
+  promocionEventoRoutes = require("./routes/promocionEvento.routes");
+  rutasEstado.promocionesEvento = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.promocionesEvento = {
+    estado: "NO CARGÓ",
+    error: error.message,
+  };
+  console.error("ERROR cargando promocionesEvento:", error.message);
+}
+
+try {
+  interesRoutes = require("./routes/interes.routes");
+  rutasEstado.intereses = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.intereses = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando intereses:", error.message);
+}
+
 app.use(
   cors({
     origin: "*",
@@ -104,13 +189,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Logs de entorno
 console.log("NODE_ENV:", process.env.NODE_ENV);
 console.log("MONGO_URI cargada:", process.env.MONGO_URI ? "Sí" : "No");
 console.log("EMAIL_USER cargado:", process.env.EMAIL_USER ? "Sí" : "No");
 console.log("EMAIL_PASS cargado:", process.env.EMAIL_PASS ? "Sí" : "No");
 
-// Mongo
 if (!process.env.MONGO_URI) {
   console.error("Falta MONGO_URI en variables de entorno");
 } else {
@@ -128,7 +211,6 @@ if (!process.env.MONGO_URI) {
     });
 }
 
-// Favicons para que no molesten
 app.get("/favicon.ico", (req, res) => {
   res.status(204).end();
 });
@@ -137,7 +219,6 @@ app.get("/favicon.png", (req, res) => {
   res.status(204).end();
 });
 
-// Rutas básicas
 app.get("/", (req, res) => {
   res.json({
     message: "API de eBA funcionando",
@@ -160,7 +241,6 @@ app.get("/test-mongo", (req, res) => {
   });
 });
 
-// Debug para saber qué rutas cargaron
 app.get("/debug-routes", (req, res) => {
   res.json({
     message: "Estado de carga de rutas",
@@ -168,7 +248,6 @@ app.get("/debug-routes", (req, res) => {
   });
 });
 
-// Debug para saber si Vercel tiene variables
 app.get("/debug-env", (req, res) => {
   res.json({
     message: "Estado de variables de entorno",
@@ -182,7 +261,6 @@ app.get("/debug-env", (req, res) => {
   });
 });
 
-// Montar rutas solo si cargaron bien
 if (usuarioRoutes) app.use("/api/usuarios", usuarioRoutes);
 if (eventoRoutes) app.use("/api/eventos", eventoRoutes);
 if (asistenciaRoutes) app.use("/api/asistencias", asistenciaRoutes);
@@ -209,7 +287,6 @@ if (promocionEventoRoutes) {
 
 if (interesRoutes) app.use("/api/intereses", interesRoutes);
 
-// Manejo de errores internos
 app.use((err, req, res, next) => {
   console.error("Error interno del servidor:");
   console.error(err.message);
@@ -221,7 +298,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 final
 app.use((req, res) => {
   res.status(404).json({
     error: "Ruta no encontrada",
@@ -229,7 +305,6 @@ app.use((req, res) => {
   });
 });
 
-// Local sí escucha puerto, Vercel no
 if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Servidor Express escuchando en http://0.0.0.0:${PORT}`);
