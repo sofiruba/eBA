@@ -545,5 +545,57 @@ router.get("/:id", async (req, res) => {
     });
   }
 });
+// POST /api/usuarios/auth/google/token
+router.post("/auth/google/token", async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    // Obtener info del usuario desde Google
+    const googleRes = await fetch(
+      `https://www.googleapis.com/oauth2/v3/userinfo`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    const perfil = await googleRes.json();
+
+    const emailGoogle = perfil.email.toLowerCase().trim();
+
+    let usuario = await Usuario.findOne({
+      $or: [{ googleId: perfil.sub }, { email: emailGoogle }],
+    });
+
+    if (usuario) {
+      if (!usuario.googleId) {
+        usuario.googleId = perfil.sub;
+        usuario.emailVerificado = true;
+        await usuario.save();
+      }
+    } else {
+      const nombreUsuarioFinal = await generarNombreUsuarioUnico(perfil.name);
+
+      usuario = new Usuario({
+        googleId: perfil.sub,
+        nombre: perfil.name,
+        nombreUsuario: nombreUsuarioFinal,
+        email: emailGoogle,
+        fotoPerfil: perfil.picture,
+        emailVerificado: true,
+        esOrganizador: false,
+      });
+
+      await usuario.save();
+    }
+
+    return res.json({
+      message: "Login con Google correcto",
+      usuario: armarUsuarioRespuesta(usuario),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error al iniciar sesión con Google",
+      detalle: error.message,
+    });
+  }
+});
 
 module.exports = router;
