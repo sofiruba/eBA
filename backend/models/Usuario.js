@@ -51,6 +51,10 @@ const usuarioSchema = new mongoose.Schema(
     codigoResetPasswordExpira: {
       type: Date,
     },
+     esOrganizador: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

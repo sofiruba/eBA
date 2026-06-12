@@ -38,6 +38,7 @@ router.post("/registro", async (req, res) => {
       instagram,
       fotoPerfil,
       intereses,
+      esOrganizador,
     } = req.body;
 
     if (!nombre || !email || !contrasenia) {
@@ -66,6 +67,7 @@ router.post("/registro", async (req, res) => {
       instagram,
       fotoPerfil,
       intereses,
+      esOrganizador: esOrganizador || false,
       emailVerificado: false,
       codigoVerificacion: codigo,
       codigoVerificacionExpira: new Date(Date.now() + 15 * 60 * 1000),
@@ -90,6 +92,7 @@ router.post("/registro", async (req, res) => {
         edad: nuevoUsuario.edad,
         intereses: nuevoUsuario.intereses,
         emailVerificado: nuevoUsuario.emailVerificado,
+        esOrganizador: nuevoUsuario.esOrganizador,
       },
     });
   } catch (error) {
@@ -136,6 +139,7 @@ router.post("/verificar-email", async (req, res) => {
         nombre: usuario.nombre,
         email: usuario.email,
         emailVerificado: usuario.emailVerificado,
+        esOrganizador: usuario.esOrganizador,
       },
     });
   } catch (error) {
@@ -192,6 +196,7 @@ router.post("/login", async (req, res) => {
         fotoPerfil: usuario.fotoPerfil,
         intereses: usuario.intereses,
         emailVerificado: usuario.emailVerificado,
+        esOrganizador: usuario.esOrganizador,
       },
     });
   } catch (error) {
@@ -282,6 +287,37 @@ router.post("/cambiar-contrasenia", async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       error: "Error al cambiar contraseña",
+      detalle: error.message,
+    });
+  }
+});
+
+// PUT /api/usuarios/:id/organizador
+router.put("/:id/organizador", async (req, res) => {
+  try {
+    const usuario = await Usuario.findByIdAndUpdate(
+      req.params.id,
+      {
+        esOrganizador: true,
+      },
+      {
+        new: true,
+      }
+    ).select("-contrasenia");
+
+    if (!usuario) {
+      return res.status(404).json({
+        error: "Usuario no encontrado",
+      });
+    }
+
+    return res.json({
+      message: "Usuario convertido en organizador correctamente",
+      usuario,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error al actualizar usuario",
       detalle: error.message,
     });
   }
