@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const PromocionEvento = require("../models/PromocionEvento");
+const actualizarPromocionesVencidas = require("../utils/actualizarPromociones");
 
 // Crear promoción
 router.post("/", async (req, res) => {
@@ -36,9 +37,34 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Obtener promociones activas
+router.get("/activas", async (req, res) => {
+  try {
+
+    await actualizarPromocionesVencidas();
+
+    const promociones = await PromocionEvento.find({
+      estado: "activa",
+    });
+
+    res.json({
+      message: "Promociones activas obtenidas correctamente",
+      promociones,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al obtener promociones activas",
+      detalle: error.message,
+    });
+  }
+});
+
 // Obtener todas las promociones
 router.get("/", async (req, res) => {
   try {
+    await actualizarPromocionesVencidas();
+
     const promociones = await PromocionEvento.find()
       .populate("eventoId", "nombre fecha categoria")
       .populate("organizadorId", "nombre email")
@@ -59,6 +85,8 @@ router.get("/", async (req, res) => {
 // Obtener promoción por ID
 router.get("/:id", async (req, res) => {
   try {
+    await actualizarPromocionesVencidas();
+    
     const promocion = await PromocionEvento.findById(req.params.id)
       .populate("eventoId", "nombre fecha categoria")
       .populate("organizadorId", "nombre email")
