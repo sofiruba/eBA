@@ -26,7 +26,7 @@ router.post("/", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const publicaciones = await Publicacion.find()
-      .populate("usuarioId", "nombre email")
+      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
       .populate("eventoId", "nombre fecha categoria")
       .sort({ createdAt: -1 });
 
@@ -48,7 +48,7 @@ router.get("/evento/:eventoId", async (req, res) => {
     const publicaciones = await Publicacion.find({
       eventoId: req.params.eventoId,
     })
-      .populate("usuarioId", "nombre email");
+      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio");
 
     res.json({
       message: "Publicaciones del evento obtenidas correctamente",
@@ -65,7 +65,7 @@ router.get("/evento/:eventoId", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const publicacion = await Publicacion.findById(req.params.id)
-      .populate("usuarioId", "nombre email fotoPerfil intereses bio")
+      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
       .populate("eventoId", "nombre fecha categoria imagen ubicacion organizador");
 
     if (!publicacion) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   LogOut,
@@ -14,6 +14,8 @@ import {
   Calendar,
   Heart,
   Pencil,
+  MapPin,
+  AtSign,
 } from "lucide-react-native";
 
 import BottomNav from "../components/BottomNav";
@@ -28,9 +30,11 @@ export default function ProfileScreen() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    cargarUsuario();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      cargarUsuario();
+    }, [])
+  );
 
   const cargarUsuario = async () => {
     try {
@@ -49,6 +53,10 @@ export default function ProfileScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const irAEditarPerfil = () => {
+    router.push("/edit-profile" as any);
   };
 
   const cerrarSesion = async () => {
@@ -72,7 +80,11 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Mi perfil</Text>
 
-          <TouchableOpacity style={styles.editButton} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.editButton}
+            activeOpacity={0.85}
+            onPress={irAEditarPerfil}
+          >
             <Pencil size={18} color="#7528F0" />
           </TouchableOpacity>
         </View>
@@ -85,14 +97,30 @@ export default function ProfileScreen() {
             {usuario?.edad ? `, ${usuario.edad}` : ""}
           </Text>
 
+          <Text style={styles.username}>
+            @{usuario?.nombreUsuario || "usuario"}
+          </Text>
+
           <Text style={styles.bio}>
-            {usuario?.bio ||
-              "Todavía no agregaste una bio. Más adelante vas a poder editar tu perfil."}
+            {usuario?.bio || "Todavía no agregaste una bio."}
           </Text>
         </View>
 
         <View style={styles.infoCard}>
           <SectionHeader title="Información personal" />
+
+          <View style={styles.infoRow}>
+            <View style={styles.iconBox}>
+              <AtSign size={20} color="#7528F0" />
+            </View>
+
+            <View style={styles.infoTextBox}>
+              <Text style={styles.infoLabel}>Nombre de usuario</Text>
+              <Text style={styles.infoValue}>
+                @{usuario?.nombreUsuario || "usuario"}
+              </Text>
+            </View>
+          </View>
 
           <View style={styles.infoRow}>
             <View style={styles.iconBox}>
@@ -121,7 +149,19 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.infoRow}>
-            
+            <View style={styles.iconBox}>
+              <MapPin size={20} color="#7528F0" />
+            </View>
+
+            <View style={styles.infoTextBox}>
+              <Text style={styles.infoLabel}>Ubicación</Text>
+              <Text style={styles.infoValue}>
+                {usuario?.ubicacionAproximada || "Sin ubicación cargada"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
 
             <View style={styles.infoTextBox}>
               <Text style={styles.infoLabel}>Instagram</Text>
@@ -208,9 +248,15 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "800",
     color: "#332047",
-    marginBottom: 8,
     marginTop: 12,
     textAlign: "center",
+  },
+  username: {
+    fontSize: 14,
+    color: "#7528F0",
+    fontWeight: "800",
+    marginTop: 4,
+    marginBottom: 8,
   },
   bio: {
     fontSize: 14,

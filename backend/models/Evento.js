@@ -29,6 +29,10 @@ const eventoSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    activo: {
+      type: Boolean,
+      default: true,
+    },
     esPromocionado: {
       type: Boolean,
       default: false,

@@ -1,15 +1,15 @@
 export type Usuario = {
   _id?: string;
   id?: string;
-  nombre?: string;
+  nombre: string;
+  nombreUsuario?: string;
   email?: string;
   edad?: number;
-  intereses?: string[];
-  fotoPerfil?: string;
+  ubicacionAproximada?: string;
   bio?: string;
   instagram?: string;
-  ubicacionAproximada?: {
-    ciudad?: string;
-    pais?: string;
-  };
+  fotoPerfil?: string;
+  intereses?: string[];
+  emailVerificado?: boolean;
+  esOrganizador?: boolean;
 };

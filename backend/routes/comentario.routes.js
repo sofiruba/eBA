@@ -24,7 +24,7 @@ router.post("/", async (req, res) => {
     await comentario.save();
 
     const comentarioPopulado = await Comentario.findById(comentario._id)
-      .populate("usuarioId", "nombre email fotoPerfil intereses bio")
+      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
       .populate("comentarioPadreId");
 
     res.status(201).json({
@@ -47,7 +47,7 @@ router.get("/publicacion/:publicacionId", async (req, res) => {
     const comentarios = await Comentario.find({
       publicacionId: req.params.publicacionId,
     })
-      .populate("usuarioId", "nombre email fotoPerfil intereses bio")
+      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
       .sort({ createdAt: 1 });
 
     res.json({
@@ -97,7 +97,7 @@ router.put("/:id", async (req, res) => {
         contenido: req.body.contenido,
       },
       { new: true }
-    ).populate("usuarioId", "nombre email fotoPerfil intereses bio");
+    ).populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio");
 
     if (!comentario) {
       return res.status(404).json({

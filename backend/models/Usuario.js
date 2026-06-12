@@ -51,9 +51,16 @@ const usuarioSchema = new mongoose.Schema(
     codigoResetPasswordExpira: {
       type: Date,
     },
-     esOrganizador: {
+    esOrganizador: {
       type: Boolean,
       default: false,
+    },
+    nombreUsuario: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
     },
   },
   {

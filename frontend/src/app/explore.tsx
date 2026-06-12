@@ -22,14 +22,7 @@ import InterestChips from "../components/InterestChips";
 
 import { Evento } from "../types/Evento";
 
-const busquedasPopulares = [
-  "Lollapalooza",
-  "Primavera",
-  "Lali",
-  "Airbag",
-  "BRESH",
-  "Techno",
-];
+
 
 export default function ExploreScreen() {
   const params = useLocalSearchParams();
@@ -403,21 +396,6 @@ export default function ExploreScreen() {
           />
         )}
 
-        <SectionHeader title="Búsquedas populares" />
-
-        <View style={styles.popularContainer}>
-          {busquedasPopulares.map((item) => (
-            <TouchableOpacity
-              key={item}
-              style={styles.popularChip}
-              activeOpacity={0.85}
-              onPress={() => buscarEventos(item)}
-            >
-              <Search size={14} color="#8B35E8" />
-              <Text style={styles.popularText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
 
         <SectionHeader
           title={obtenerTituloSeccion()}

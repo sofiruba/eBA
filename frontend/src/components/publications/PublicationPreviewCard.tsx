@@ -35,6 +35,10 @@ export default function PublicationPreviewCard({
             {publicacion.usuarioId?.nombre || "Usuario"}
           </Text>
 
+          <Text style={styles.username}>
+            @{publicacion.usuarioId?.nombreUsuario || "usuario"}
+          </Text>
+
           <Text style={styles.date}>{formatearFecha(publicacion.createdAt)}</Text>
         </View>
       </View>
@@ -46,7 +50,8 @@ export default function PublicationPreviewCard({
       <View style={styles.footer}>
         <MessageCircle size={16} color="#8B35E8" />
         <Text style={styles.footerText}>
-          {comentariosCount} {comentariosCount === 1 ? "comentario" : "comentarios"}
+          {comentariosCount}{" "}
+          {comentariosCount === 1 ? "comentario" : "comentarios"}
         </Text>
       </View>
     </TouchableOpacity>
@@ -75,12 +80,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
     color: "#2D2934",
-    marginBottom: 2,
+  },
+  username: {
+    fontSize: 12,
+    color: "#8B35E8",
+    fontWeight: "800",
+    marginTop: 2,
   },
   date: {
     fontSize: 11,
     color: "#8D8A99",
     fontWeight: "700",
+    marginTop: 2,
   },
   content: {
     fontSize: 14,

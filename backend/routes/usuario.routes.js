@@ -8,6 +8,67 @@ const generarCodigo = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+const normalizarNombreUsuario = (valor) => {
+  if (!valor) return "";
+
+  return valor
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace("@", "")
+    .replace(/\s+/g, ".")
+    .replace(/[^a-z0-9._]/g, "");
+};
+
+const generarNombreUsuarioUnico = async (base, usuarioIdIgnorado = null) => {
+  let nombreUsuarioBase = normalizarNombreUsuario(base);
+
+  if (!nombreUsuarioBase) {
+    nombreUsuarioBase = `usuario${Date.now()}`;
+  }
+
+  let nombreUsuarioFinal = nombreUsuarioBase;
+  let contador = 1;
+
+  while (true) {
+    const filtro = {
+      nombreUsuario: nombreUsuarioFinal,
+    };
+
+    if (usuarioIdIgnorado) {
+      filtro._id = { $ne: usuarioIdIgnorado };
+    }
+
+    const existe = await Usuario.findOne(filtro);
+
+    if (!existe) {
+      return nombreUsuarioFinal;
+    }
+
+    contador++;
+    nombreUsuarioFinal = `${nombreUsuarioBase}.${contador}`;
+  }
+};
+
+const armarUsuarioRespuesta = (usuario) => {
+  return {
+    id: usuario._id,
+    nombre: usuario.nombre,
+    nombreUsuario: usuario.nombreUsuario,
+    email: usuario.email,
+    edad: usuario.edad,
+    ubicacionAproximada: usuario.ubicacionAproximada,
+    bio: usuario.bio,
+    instagram: usuario.instagram,
+    fotoPerfil: usuario.fotoPerfil,
+    intereses: usuario.intereses,
+    emailVerificado: usuario.emailVerificado,
+    esOrganizador: usuario.esOrganizador,
+  };
+};
+
 // GET /api/usuarios
 router.get("/", async (req, res) => {
   try {
@@ -30,6 +91,7 @@ router.post("/registro", async (req, res) => {
   try {
     const {
       nombre,
+      nombreUsuario,
       email,
       contrasenia,
       edad,
@@ -47,19 +109,49 @@ router.post("/registro", async (req, res) => {
       });
     }
 
-    const usuarioExistente = await Usuario.findOne({ email });
+    const emailNormalizado = email.toLowerCase().trim();
 
-    if (usuarioExistente) {
+    const usuarioExistentePorEmail = await Usuario.findOne({
+      email: emailNormalizado,
+    });
+
+    if (usuarioExistentePorEmail) {
       return res.status(400).json({
         error: "Ya existe un usuario con ese email",
       });
+    }
+
+    let nombreUsuarioFinal;
+
+    if (nombreUsuario) {
+      nombreUsuarioFinal = normalizarNombreUsuario(nombreUsuario);
+
+      if (!nombreUsuarioFinal) {
+        return res.status(400).json({
+          error:
+            "El nombre de usuario solo puede tener letras, números, punto o guion bajo",
+        });
+      }
+
+      const usuarioExistentePorNombre = await Usuario.findOne({
+        nombreUsuario: nombreUsuarioFinal,
+      });
+
+      if (usuarioExistentePorNombre) {
+        return res.status(400).json({
+          error: "Ese nombre de usuario ya está en uso",
+        });
+      }
+    } else {
+      nombreUsuarioFinal = await generarNombreUsuarioUnico(nombre);
     }
 
     const codigo = generarCodigo();
 
     const nuevoUsuario = new Usuario({
       nombre,
-      email,
+      nombreUsuario: nombreUsuarioFinal,
+      email: emailNormalizado,
       contrasenia,
       edad,
       ubicacionAproximada,
@@ -84,16 +176,9 @@ router.post("/registro", async (req, res) => {
     });
 
     return res.status(201).json({
-      message: "Usuario registrado correctamente. Revisá tu email para verificar la cuenta.",
-      usuario: {
-        id: nuevoUsuario._id,
-        nombre: nuevoUsuario.nombre,
-        email: nuevoUsuario.email,
-        edad: nuevoUsuario.edad,
-        intereses: nuevoUsuario.intereses,
-        emailVerificado: nuevoUsuario.emailVerificado,
-        esOrganizador: nuevoUsuario.esOrganizador,
-      },
+      message:
+        "Usuario registrado correctamente. Revisá tu email para verificar la cuenta.",
+      usuario: armarUsuarioRespuesta(nuevoUsuario),
     });
   } catch (error) {
     return res.status(500).json({
@@ -115,7 +200,7 @@ router.post("/verificar-email", async (req, res) => {
     }
 
     const usuario = await Usuario.findOne({
-      email,
+      email: email.toLowerCase().trim(),
       codigoVerificacion: codigo,
       codigoVerificacionExpira: { $gt: new Date() },
     });
@@ -130,17 +215,15 @@ router.post("/verificar-email", async (req, res) => {
     usuario.codigoVerificacion = undefined;
     usuario.codigoVerificacionExpira = undefined;
 
+    if (!usuario.nombreUsuario) {
+      usuario.nombreUsuario = await generarNombreUsuarioUnico(usuario.nombre);
+    }
+
     await usuario.save();
 
     return res.json({
       message: "Email verificado correctamente",
-      usuario: {
-        id: usuario._id,
-        nombre: usuario.nombre,
-        email: usuario.email,
-        emailVerificado: usuario.emailVerificado,
-        esOrganizador: usuario.esOrganizador,
-      },
+      usuario: armarUsuarioRespuesta(usuario),
     });
   } catch (error) {
     return res.status(500).json({
@@ -161,7 +244,9 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const usuario = await Usuario.findOne({ email });
+    const usuario = await Usuario.findOne({
+      email: email.toLowerCase().trim(),
+    });
 
     if (!usuario) {
       return res.status(401).json({
@@ -183,21 +268,14 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    if (!usuario.nombreUsuario) {
+      usuario.nombreUsuario = await generarNombreUsuarioUnico(usuario.nombre);
+      await usuario.save();
+    }
+
     return res.json({
       message: "Login correcto",
-      usuario: {
-        id: usuario._id,
-        nombre: usuario.nombre,
-        email: usuario.email,
-        edad: usuario.edad,
-        ubicacionAproximada: usuario.ubicacionAproximada,
-        bio: usuario.bio,
-        instagram: usuario.instagram,
-        fotoPerfil: usuario.fotoPerfil,
-        intereses: usuario.intereses,
-        emailVerificado: usuario.emailVerificado,
-        esOrganizador: usuario.esOrganizador,
-      },
+      usuario: armarUsuarioRespuesta(usuario),
     });
   } catch (error) {
     return res.status(500).json({
@@ -218,7 +296,9 @@ router.post("/recuperar-contrasenia", async (req, res) => {
       });
     }
 
-    const usuario = await Usuario.findOne({ email });
+    const usuario = await Usuario.findOne({
+      email: email.toLowerCase().trim(),
+    });
 
     if (!usuario) {
       return res.status(404).json({
@@ -264,7 +344,7 @@ router.post("/cambiar-contrasenia", async (req, res) => {
     }
 
     const usuario = await Usuario.findOne({
-      email,
+      email: email.toLowerCase().trim(),
       codigoResetPassword: codigo,
       codigoResetPasswordExpira: { $gt: new Date() },
     });
@@ -287,6 +367,88 @@ router.post("/cambiar-contrasenia", async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       error: "Error al cambiar contraseña",
+      detalle: error.message,
+    });
+  }
+});
+
+// PUT /api/usuarios/:id
+router.put("/:id", async (req, res) => {
+  try {
+    const {
+      nombre,
+      nombreUsuario,
+      edad,
+      ubicacionAproximada,
+      bio,
+      instagram,
+      fotoPerfil,
+      intereses,
+    } = req.body;
+
+    const datosActualizados = {};
+
+    if (nombre !== undefined) {
+      datosActualizados.nombre = nombre;
+    }
+
+    if (nombreUsuario !== undefined) {
+      const nombreUsuarioNormalizado = normalizarNombreUsuario(nombreUsuario);
+
+      if (!nombreUsuarioNormalizado) {
+        return res.status(400).json({
+          error:
+            "El nombre de usuario solo puede tener letras, números, punto o guion bajo",
+        });
+      }
+
+      const usuarioConEseNombre = await Usuario.findOne({
+        nombreUsuario: nombreUsuarioNormalizado,
+        _id: { $ne: req.params.id },
+      });
+
+      if (usuarioConEseNombre) {
+        return res.status(400).json({
+          error: "Ese nombre de usuario ya está en uso",
+        });
+      }
+
+      datosActualizados.nombreUsuario = nombreUsuarioNormalizado;
+    }
+
+    if (edad !== undefined) datosActualizados.edad = edad;
+
+    if (ubicacionAproximada !== undefined) {
+      datosActualizados.ubicacionAproximada = ubicacionAproximada;
+    }
+
+    if (bio !== undefined) datosActualizados.bio = bio;
+    if (instagram !== undefined) datosActualizados.instagram = instagram;
+    if (fotoPerfil !== undefined) datosActualizados.fotoPerfil = fotoPerfil;
+    if (intereses !== undefined) datosActualizados.intereses = intereses;
+
+    const usuario = await Usuario.findByIdAndUpdate(
+      req.params.id,
+      datosActualizados,
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).select("-contrasenia");
+
+    if (!usuario) {
+      return res.status(404).json({
+        error: "Usuario no encontrado",
+      });
+    }
+
+    return res.json({
+      message: "Perfil actualizado correctamente",
+      usuario: armarUsuarioRespuesta(usuario),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error al actualizar perfil",
       detalle: error.message,
     });
   }
@@ -332,6 +494,11 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({
         error: "Usuario no encontrado",
       });
+    }
+
+    if (!usuario.nombreUsuario) {
+      usuario.nombreUsuario = await generarNombreUsuarioUnico(usuario.nombre);
+      await usuario.save();
     }
 
     return res.json({

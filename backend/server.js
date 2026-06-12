@@ -4,7 +4,6 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 
-
 const usuarioRoutes = require("./routes/usuario.routes");
 const eventoRoutes = require("./routes/evento.routes");
 const asistenciaRoutes = require("./routes/asistencia.routes");
@@ -34,7 +33,10 @@ app.use(
   })
 );
 
-app.use(express.json());
+// Esto arregla el error: PayloadTooLargeError: request entity too large
+// Es necesario porque la foto de perfil se manda como base64 dentro del JSON.
+app.use(express.json({ limit: "30mb" }));
+app.use(express.urlencoded({ limit: "30mb", extended: true }));
 
 app.use((req, res, next) => {
   console.log("Request recibida:", req.method, req.url);
@@ -67,6 +69,7 @@ app.get("/", (req, res) => {
 
 app.get("/ping", (req, res) => {
   console.log("Entró a /ping");
+
   res.json({
     message: "pong",
   });
@@ -80,6 +83,7 @@ app.get("/test-mongo", (req, res) => {
     database: mongoose.connection.name,
   });
 });
+
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/eventos", eventoRoutes);
 app.use("/api/asistencias", asistenciaRoutes);
@@ -104,10 +108,6 @@ app.use((req, res) => {
   });
 });
 
-app.use((req, res, next) => {
-  console.log("REQUEST:", req.method, req.url);
-  next();
-});
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Servidor Express escuchando en http://0.0.0.0:${PORT}`);
 });

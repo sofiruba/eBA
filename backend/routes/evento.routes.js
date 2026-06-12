@@ -4,12 +4,14 @@ const Evento = require("../models/Evento");
 const Conexion = require("../models/Conexion");
 const Notificacion = require("../models/Notificacion");
 const Usuario = require("../models/Usuario");
+const actualizarEventosVencidos = require("../utils/actualizarEventos");
 
 
 
 // Obtener todos los eventos
 router.get("/", async (req, res) => {
   try {
+    await actualizarEventosVencidos();
     const eventos = await Evento.find().sort({ fecha: 1 });
 
     res.json({
@@ -24,9 +26,33 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Obtener eventos activos
+router.get("/activos", async (req, res) => {
+  try {
+
+    await actualizarEventosVencidos();
+
+    const eventos = await Evento.find({
+      activo: true,
+    }).sort({ fecha: 1 });
+
+    res.json({
+      message: "Eventos activos obtenidos correctamente",
+      eventos,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al obtener eventos activos",
+      detalle: error.message,
+    });
+  }
+});
+
 // Obtener eventos promocionados
 router.get("/promocionados", async (req, res) => {
   try {
+    await actualizarEventosVencidos();
     const eventos = await Evento.find({ esPromocionado: true }).sort({ fecha: 1 });
 
     res.json({
@@ -36,6 +62,30 @@ router.get("/promocionados", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: "Error al obtener eventos promocionados",
+      detalle: error.message,
+    });
+  }
+});
+
+// Obtener eventos promocionados activos
+router.get("/promocionados-activos", async (req, res) => {
+  try {
+
+    await actualizarEventosVencidos();
+
+    const eventos = await Evento.find({
+      esPromocionado: true,
+      activo: true,
+    }).sort({ fecha: 1 });
+
+    res.json({
+      message: "Eventos promocionados activos obtenidos correctamente",
+      eventos,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al obtener eventos promocionados activos",
       detalle: error.message,
     });
   }
@@ -94,6 +144,7 @@ router.post("/", async (req, res) => {
 // Obtener eventos por categoría
 router.get("/categoria/:categoria", async (req, res) => {
   try {
+    await actualizarEventosVencidos();
     const eventos = await Evento.find({
       categoria: req.params.categoria,
     }).sort({ fecha: 1 });
@@ -113,6 +164,7 @@ router.get("/categoria/:categoria", async (req, res) => {
 // Buscar eventos por texto
 router.get("/buscar/:texto", async (req, res) => {
   try {
+    await actualizarEventosVencidos();
     const texto = req.params.texto;
 
     const eventos = await Evento.find({
@@ -138,6 +190,7 @@ router.get("/buscar/:texto", async (req, res) => {
 // GET /api/eventos/recomendados/:usuarioId
 router.get("/recomendados/:usuarioId", async (req, res) => {
   try {
+    await actualizarEventosVencidos();
     const { usuarioId } = req.params;
 
     const usuario = await Usuario.findById(usuarioId);
@@ -167,9 +220,11 @@ router.get("/recomendados/:usuarioId", async (req, res) => {
     });
   }
 });
+
 // Obtener evento por ID
 router.get("/:id", async (req, res) => {
   try {
+    await actualizarEventosVencidos();
     const evento = await Evento.findById(req.params.id);
 
     if (!evento) {

@@ -130,8 +130,8 @@ export default function EventPeopleScreen() {
       if (!responseAsistencias.ok) {
         alert(
           dataAsistencias.message ||
-            dataAsistencias.error ||
-            "Error al traer personas interesadas."
+          dataAsistencias.error ||
+          "Error al traer personas interesadas."
         );
         return;
       }
@@ -387,12 +387,14 @@ export default function EventPeopleScreen() {
     if (!texto) return true;
 
     const nombre = usuario?.nombre?.toLowerCase() || "";
+    const nombreUsuario = usuario?.nombreUsuario?.toLowerCase() || "";
     const email = usuario?.email?.toLowerCase() || "";
     const bio = usuario?.bio?.toLowerCase() || "";
     const intereses = usuario?.intereses?.join(" ").toLowerCase() || "";
 
     return (
       nombre.includes(texto) ||
+      nombreUsuario.includes(texto) ||
       email.includes(texto) ||
       bio.includes(texto) ||
       intereses.includes(texto)
@@ -559,8 +561,8 @@ export default function EventPeopleScreen() {
                         {yaEsAmigo
                           ? "Ya son conexión"
                           : solicitudPendiente
-                          ? "Solicitud pendiente"
-                          : "Estado: interesado"}
+                            ? "Solicitud pendiente"
+                            : "Estado: interesado"}
                       </Text>
                     </View>
 

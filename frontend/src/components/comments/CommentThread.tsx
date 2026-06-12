@@ -68,6 +68,10 @@ export default function CommentThread({
               {comentario.usuarioId?.nombre || "Usuario"}
             </Text>
 
+            <Text style={styles.username}>
+              @{comentario.usuarioId?.nombreUsuario || "usuario"}
+            </Text>
+
             <Text style={styles.date}>
               {formatearFecha(comentario.createdAt)}
             </Text>
@@ -86,8 +90,8 @@ export default function CommentThread({
           <View style={styles.replyInputRow}>
             <TextInput
               style={styles.replyInput}
-              placeholder={`Responder a ${
-                comentario.usuarioId?.nombre || "usuario"
+              placeholder={`Responder a @${
+                comentario.usuarioId?.nombreUsuario || "usuario"
               }...`}
               placeholderTextColor="#A7A7B0"
               value={textoRespuesta}
@@ -161,12 +165,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "900",
     color: "#332047",
-    marginBottom: 2,
+  },
+  username: {
+    fontSize: 11,
+    color: "#8B35E8",
+    fontWeight: "800",
+    marginTop: 1,
   },
   date: {
     fontSize: 11,
     color: "#8D8A99",
     fontWeight: "700",
+    marginTop: 1,
   },
   commentText: {
     fontSize: 14,
