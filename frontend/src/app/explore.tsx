@@ -185,36 +185,46 @@ export default function ExploreScreen() {
   };
 
   const buscarEventos = async (texto: string) => {
-    setTextoBusqueda(texto);
-    setCategoriaActiva("");
-    setTituloPersonalizado("");
+  setTextoBusqueda(texto);
+  setCategoriaActiva("");
 
-    if (texto.trim().length === 0) {
-      setBuscoAlgo(false);
-      await obtenerTodosLosEventos();
+  const textoLimpio = texto.trim();
+
+  if (textoLimpio.length === 0) {
+    setBuscoAlgo(false);
+    await obtenerEventosRecomendadosDelUsuario();
+    return;
+  }
+
+  const caracteresValidos = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s]+$/;
+
+  if (!caracteresValidos.test(textoLimpio)) {
+    setBuscoAlgo(true);
+    setEventos([]);
+    return;
+  }
+
+  try {
+    setBuscoAlgo(true);
+
+    const response = await fetch(
+      `${API_URL}/api/eventos/buscar/${encodeURIComponent(textoLimpio)}`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.log("Error al buscar eventos:", data);
+      setEventos([]);
       return;
     }
 
-    try {
-      setBuscoAlgo(true);
-
-      const response = await fetch(
-        `${API_URL}/api/eventos/buscar/${encodeURIComponent(texto.trim())}`
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(data.message || data.error || "Error al buscar eventos.");
-        return;
-      }
-
-      setEventos(data.eventos || []);
-    } catch (error) {
-      console.log("Error al buscar eventos:", error);
-      alert("No se pudo conectar con el servidor.");
-    }
-  };
+    setEventos(data.eventos || []);
+  } catch (error) {
+    console.log("Error al buscar eventos:", error);
+    setEventos([]);
+  }
+};
 
   const filtrarPorCategoria = async (categoria: string) => {
     try {
@@ -244,14 +254,15 @@ export default function ExploreScreen() {
     }
   };
 
-  const limpiarFiltros = async () => {
-    setTextoBusqueda("");
-    setCategoriaActiva("");
-    setBuscoAlgo(false);
-    setTituloPersonalizado("");
-    await obtenerTodosLosEventos();
-  };
 
+
+  const limpiarFiltros = async () => {
+  setTextoBusqueda("");
+  setCategoriaActiva("");
+  setBuscoAlgo(false);
+  setTituloPersonalizado("");
+  await obtenerTodosLosEventos();
+};
   const toggleFavorito = async (eventoId: string) => {
     let nuevosFavoritos: string[];
 
@@ -366,13 +377,7 @@ export default function ExploreScreen() {
             />
           </View>
 
-          <TouchableOpacity
-            style={styles.filterButton}
-            activeOpacity={0.85}
-            onPress={limpiarFiltros}
-          >
-            <SlidersHorizontal size={24} color="#7528F0" />
-          </TouchableOpacity>
+
         </View>
 
         <ScrollView
@@ -452,13 +457,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
   },
+
   searchBox: {
     flex: 1,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#EEF5FF",
+    borderColor: "#E6E0F4",
+        backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E2E8FF",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,

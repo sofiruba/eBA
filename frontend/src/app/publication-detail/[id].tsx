@@ -255,6 +255,14 @@ export default function PublicationDetailScreen() {
                                 {publicacion.usuarioId?.nombre || "Usuario"}
                             </Text>
 
+                            <Text style={styles.postUsername}>
+                                @{publicacion.usuarioId?.nombreUsuario || "usuario"}
+                            </Text>
+
+                            <Text style={styles.postDate}>
+                                {formatearFecha(publicacion.createdAt)}
+                            </Text>
+
                             <Text style={styles.postDate}>
                                 {formatearFecha(publicacion.createdAt)}
                             </Text>
@@ -471,5 +479,11 @@ const styles = StyleSheet.create({
         color: "#8D8A99",
         textAlign: "center",
         lineHeight: 19,
+    },
+    postUsername: {
+        fontSize: 12,
+        color: "#8B35E8",
+        fontWeight: "800",
+        marginBottom: 2,
     },
 });
