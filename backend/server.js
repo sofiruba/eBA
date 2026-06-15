@@ -27,9 +27,8 @@ let pagoRoutes = null;
 let promocionEventoRoutes = null;
 let interesRoutes = null;
 
-// IMPORTANTE:
-// En Vercel los require tienen que ser literales.
-// No usar require(path) con variable.
+// IMPORTANTE PARA VERCEL:
+// los require tienen que ser literales, no con variables.
 
 try {
   usuarioRoutes = require("./routes/usuario.routes");
@@ -134,7 +133,10 @@ try {
   planPromocionRoutes = require("./routes/planPromocion.routes");
   rutasEstado.planesPromocion = { estado: "OK", error: null };
 } catch (error) {
-  rutasEstado.planesPromocion = { estado: "NO CARGÓ", error: error.message };
+  rutasEstado.planesPromocion = {
+    estado: "NO CARGÓ",
+    error: error.message,
+  };
   console.error("ERROR cargando planesPromocion:", error.message);
 }
 
@@ -173,6 +175,7 @@ try {
   console.error("ERROR cargando intereses:", error.message);
 }
 
+// Middlewares
 app.use(
   cors({
     origin: "*",
@@ -189,28 +192,45 @@ app.use((req, res, next) => {
   next();
 });
 
+// Logs de entorno
 console.log("NODE_ENV:", process.env.NODE_ENV);
 console.log("MONGO_URI cargada:", process.env.MONGO_URI ? "Sí" : "No");
 console.log("EMAIL_USER cargado:", process.env.EMAIL_USER ? "Sí" : "No");
 console.log("EMAIL_PASS cargado:", process.env.EMAIL_PASS ? "Sí" : "No");
 
-if (!process.env.MONGO_URI) {
-  console.error("Falta MONGO_URI en variables de entorno");
-} else {
-  mongoose
-    .connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 5000,
-    })
-    .then(() => {
-      console.log("MongoDB Atlas conectado correctamente");
-      console.log("Base conectada:", mongoose.connection.name);
-    })
-    .catch((error) => {
-      console.error("Error conectando a MongoDB:");
-      console.error(error.message);
-    });
-}
+// Mongo preparado para Vercel
+let mongoPromise = null;
 
+const conectarMongo = async () => {
+  if (!process.env.MONGO_URI) {
+    throw new Error("Falta MONGO_URI en variables de entorno");
+  }
+
+  if (mongoose.connection.readyState === 1) {
+    return;
+  }
+
+  if (!mongoPromise) {
+    console.log("Intentando conectar a MongoDB Atlas...");
+
+    mongoPromise = mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 15000,
+      bufferCommands: false,
+    });
+  }
+
+  await mongoPromise;
+
+  console.log("MongoDB Atlas conectado correctamente");
+  console.log("Base conectada:", mongoose.connection.name);
+};
+
+conectarMongo().catch((error) => {
+  console.error("Error conectando a MongoDB al iniciar:");
+  console.error(error.message);
+});
+
+// Favicons para que no molesten
 app.get("/favicon.ico", (req, res) => {
   res.status(204).end();
 });
@@ -219,6 +239,7 @@ app.get("/favicon.png", (req, res) => {
   res.status(204).end();
 });
 
+// Rutas básicas
 app.get("/", (req, res) => {
   res.json({
     message: "API de eBA funcionando",
@@ -232,15 +253,27 @@ app.get("/ping", (req, res) => {
   });
 });
 
-app.get("/test-mongo", (req, res) => {
-  res.json({
-    message: "Test de MongoDB",
-    connected: mongoose.connection.readyState === 1,
-    readyState: mongoose.connection.readyState,
-    database: mongoose.connection.name,
-  });
+app.get("/test-mongo", async (req, res) => {
+  try {
+    await conectarMongo();
+
+    res.json({
+      message: "Test de MongoDB",
+      connected: mongoose.connection.readyState === 1,
+      readyState: mongoose.connection.readyState,
+      database: mongoose.connection.name,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error conectando a MongoDB",
+      connected: false,
+      readyState: mongoose.connection.readyState,
+      detalle: error.message,
+    });
+  }
 });
 
+// Debug para saber qué rutas cargaron
 app.get("/debug-routes", (req, res) => {
   res.json({
     message: "Estado de carga de rutas",
@@ -248,6 +281,7 @@ app.get("/debug-routes", (req, res) => {
   });
 });
 
+// Debug para saber si Vercel tiene variables
 app.get("/debug-env", (req, res) => {
   res.json({
     message: "Estado de variables de entorno",
@@ -261,6 +295,23 @@ app.get("/debug-env", (req, res) => {
   });
 });
 
+// Antes de cualquier ruta /api, nos aseguramos de que Mongo esté conectado
+app.use("/api", async (req, res, next) => {
+  try {
+    await conectarMongo();
+    next();
+  } catch (error) {
+    console.error("Error conectando a Mongo desde /api:");
+    console.error(error.message);
+
+    return res.status(500).json({
+      error: "No se pudo conectar a MongoDB",
+      detalle: error.message,
+    });
+  }
+});
+
+// Montar rutas solo si cargaron bien
 if (usuarioRoutes) app.use("/api/usuarios", usuarioRoutes);
 if (eventoRoutes) app.use("/api/eventos", eventoRoutes);
 if (asistenciaRoutes) app.use("/api/asistencias", asistenciaRoutes);
@@ -287,6 +338,7 @@ if (promocionEventoRoutes) {
 
 if (interesRoutes) app.use("/api/intereses", interesRoutes);
 
+// Manejo de errores internos
 app.use((err, req, res, next) => {
   console.error("Error interno del servidor:");
   console.error(err.message);
@@ -298,6 +350,7 @@ app.use((err, req, res, next) => {
   });
 });
 
+// 404 final
 app.use((req, res) => {
   res.status(404).json({
     error: "Ruta no encontrada",
@@ -305,6 +358,7 @@ app.use((req, res) => {
   });
 });
 
+// Local sí escucha puerto, Vercel no
 if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Servidor Express escuchando en http://0.0.0.0:${PORT}`);
