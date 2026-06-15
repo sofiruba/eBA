@@ -131,7 +131,10 @@ try {
 
 try {
   planPromocionRoutes = require("./routes/planPromocion.routes");
-  rutasEstado.planesPromocion = { estado: "OK", error: null };
+  rutasEstado.planesPromocion = {
+    estado: "OK",
+    error: null,
+  };
 } catch (error) {
   rutasEstado.planesPromocion = {
     estado: "NO CARGÓ",
@@ -210,19 +213,35 @@ const conectarMongo = async () => {
     return;
   }
 
-  if (!mongoPromise) {
-    console.log("Intentando conectar a MongoDB Atlas...");
+  try {
+    if (!mongoPromise) {
+      console.log("Intentando conectar a MongoDB Atlas...");
 
-    mongoPromise = mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 15000,
-      bufferCommands: false,
-    });
+      mongoPromise = mongoose.connect(process.env.MONGO_URI, {
+        serverSelectionTimeoutMS: 15000,
+        bufferCommands: false,
+      });
+    }
+
+    await mongoPromise;
+
+    console.log("MongoDB Atlas conectado correctamente");
+    console.log("Base conectada:", mongoose.connection.name);
+  } catch (error) {
+    console.error("Falló conexión a MongoDB:");
+    console.error(error.message);
+
+    mongoPromise = null;
+
+    try {
+      await mongoose.disconnect();
+    } catch (disconnectError) {
+      console.error("Error al desconectar mongoose:");
+      console.error(disconnectError.message);
+    }
+
+    throw error;
   }
-
-  await mongoPromise;
-
-  console.log("MongoDB Atlas conectado correctamente");
-  console.log("Base conectada:", mongoose.connection.name);
 };
 
 conectarMongo().catch((error) => {
