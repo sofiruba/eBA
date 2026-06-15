@@ -26,6 +26,7 @@ let notificacionRoutes = null;
 let pagoRoutes = null;
 let promocionEventoRoutes = null;
 let interesRoutes = null;
+let bloqueoRoutes = null;
 
 // IMPORTANTE PARA VERCEL:
 // los require tienen que ser literales, no con variables.
@@ -36,6 +37,14 @@ try {
 } catch (error) {
   rutasEstado.usuarios = { estado: "NO CARGÓ", error: error.message };
   console.error("ERROR cargando usuarios:", error.message);
+}
+
+try {
+  bloqueoRoutes = require("./routes/bloqueo.routes");
+  rutasEstado.bloqueos = { estado: "OK", error: null };
+} catch (error) {
+  rutasEstado.bloqueos = { estado: "NO CARGÓ", error: error.message };
+  console.error("ERROR cargando bloqueos:", error.message);
 }
 
 try {
@@ -131,10 +140,7 @@ try {
 
 try {
   planPromocionRoutes = require("./routes/planPromocion.routes");
-  rutasEstado.planesPromocion = {
-    estado: "OK",
-    error: null,
-  };
+  rutasEstado.planesPromocion = { estado: "OK", error: null };
 } catch (error) {
   rutasEstado.planesPromocion = {
     estado: "NO CARGÓ",
@@ -332,6 +338,7 @@ app.use("/api", async (req, res, next) => {
 
 // Montar rutas solo si cargaron bien
 if (usuarioRoutes) app.use("/api/usuarios", usuarioRoutes);
+if (bloqueoRoutes) app.use("/api/bloqueos", bloqueoRoutes);
 if (eventoRoutes) app.use("/api/eventos", eventoRoutes);
 if (asistenciaRoutes) app.use("/api/asistencias", asistenciaRoutes);
 
