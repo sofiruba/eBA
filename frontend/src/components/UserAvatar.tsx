@@ -2,15 +2,15 @@ import { View, Text, Image, StyleSheet } from "react-native";
 import { Usuario } from "../types/Usuario";
 
 type UserAvatarProps = {
-  usuario?: Usuario;
+  usuario?: Usuario | null;
   size?: number;
 };
 
 export default function UserAvatar({ usuario, size = 42 }: UserAvatarProps) {
-  const obtenerInicial = () => {
-    if (!usuario?.nombre) return "U";
-    return usuario.nombre.charAt(0).toUpperCase();
-  };
+const obtenerInicial = () => {
+  if (!usuario?.nombre) return "?";
+  return usuario.nombre.charAt(0).toUpperCase();
+};
 
   if (usuario?.fotoPerfil) {
     return (

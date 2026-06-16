@@ -1,12 +1,12 @@
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
 import { MessageCircle } from "lucide-react-native";
-import UserAvatar from "../UserAvatar";
 import { Publicacion } from "../../types/Social";
+import { Usuario } from "../../types/Usuario";
 
 type Props = {
   publicacion: Publicacion;
   comentariosCount?: number;
-  onPress: () => void;
+  onPress?: () => void;
 };
 
 export default function PublicationPreviewCard({
@@ -25,21 +25,38 @@ export default function PublicationPreviewCard({
     });
   };
 
-  return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.88} onPress={onPress}>
+  const usuario: Usuario | null =
+    publicacion.usuarioId && typeof publicacion.usuarioId === "object"
+      ? publicacion.usuarioId
+      : null;
+
+  const usuarioEliminado = !usuario;
+
+  const nombreUsuario = usuario?.nombre || "Usuario eliminado";
+  const username = usuario?.nombreUsuario || "usuario_eliminado";
+  const fotoPerfil = usuario?.fotoPerfil;
+
+  const contenidoCard = (
+    <View style={styles.card}>
       <View style={styles.header}>
-        <UserAvatar usuario={publicacion.usuarioId} size={38} />
+        {fotoPerfil ? (
+          <Image source={{ uri: fotoPerfil }} style={styles.avatar} />
+        ) : (
+          <View style={styles.deletedAvatar}>
+            <Text style={styles.deletedAvatarText}>
+              {usuarioEliminado ? "?" : nombreUsuario.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>
-            {publicacion.usuarioId?.nombre || "Usuario"}
-          </Text>
+          <Text style={styles.userName}>{nombreUsuario}</Text>
 
-          <Text style={styles.username}>
-            @{publicacion.usuarioId?.nombreUsuario || "usuario"}
-          </Text>
+          <Text style={styles.username}>@{username}</Text>
 
-          <Text style={styles.date}>{formatearFecha(publicacion.createdAt)}</Text>
+          <Text style={styles.date}>
+            {formatearFecha(publicacion.createdAt)}
+          </Text>
         </View>
       </View>
 
@@ -54,6 +71,16 @@ export default function PublicationPreviewCard({
           {comentariosCount === 1 ? "comentario" : "comentarios"}
         </Text>
       </View>
+    </View>
+  );
+
+  if (usuarioEliminado || !onPress) {
+    return contenidoCard;
+  }
+
+  return (
+    <TouchableOpacity activeOpacity={0.88} onPress={onPress}>
+      {contenidoCard}
     </TouchableOpacity>
   );
 }
@@ -71,6 +98,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  deletedAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#E8E1F8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deletedAvatarText: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#7528F0",
   },
   userInfo: {
     marginLeft: 10,

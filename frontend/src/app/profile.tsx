@@ -5,8 +5,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Modal,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
+import { API_URL } from "../config/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   LogOut,
@@ -16,6 +18,11 @@ import {
   Pencil,
   MapPin,
   AtSign,
+  Settings,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  X,
 } from "lucide-react-native";
 
 import BottomNav from "../components/BottomNav";
@@ -29,6 +36,10 @@ import { Usuario } from "../types/Usuario";
 export default function ProfileScreen() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mostrarConfiguracion, setMostrarConfiguracion] = useState(false);
+  const [mostrarConfirmacionEliminar, setMostrarConfirmacionEliminar] =
+    useState(false);
+  const [eliminandoCuenta, setEliminandoCuenta] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -38,6 +49,8 @@ export default function ProfileScreen() {
 
   const cargarUsuario = async () => {
     try {
+      setLoading(true);
+
       const usuarioGuardado = await AsyncStorage.getItem("usuario");
 
       if (!usuarioGuardado) {
@@ -62,7 +75,66 @@ export default function ProfileScreen() {
   const cerrarSesion = async () => {
     await AsyncStorage.removeItem("usuario");
     await AsyncStorage.removeItem("token");
+    await AsyncStorage.removeItem("favoritos");
+
     router.replace("/login" as any);
+  };
+
+  const abrirConfirmacionEliminar = () => {
+    setMostrarConfirmacionEliminar(true);
+  };
+
+  const cerrarConfirmacionEliminar = () => {
+    if (eliminandoCuenta) return;
+    setMostrarConfirmacionEliminar(false);
+  };
+
+  const eliminarCuenta = async () => {
+    try {
+      setEliminandoCuenta(true);
+
+      const usuarioGuardado = await AsyncStorage.getItem("usuario");
+
+      if (!usuarioGuardado && !usuario) {
+        router.replace("/login" as any);
+        return;
+      }
+
+      const usuarioActual = usuarioGuardado ? JSON.parse(usuarioGuardado) : usuario;
+      const usuarioId = usuarioActual?.id || usuarioActual?._id;
+
+      if (!usuarioId) {
+        console.log("No se pudo encontrar el usuario para eliminar");
+        setMostrarConfirmacionEliminar(false);
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/usuarios/${usuarioId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.log("Error eliminando cuenta:", data);
+        setMostrarConfirmacionEliminar(false);
+        return;
+      }
+
+      await AsyncStorage.removeItem("usuario");
+      await AsyncStorage.removeItem("token");
+      await AsyncStorage.removeItem("favoritos");
+
+      setUsuario(null);
+      setMostrarConfirmacionEliminar(false);
+
+      router.replace("/login" as any);
+    } catch (error) {
+      console.log("Error al eliminar cuenta:", error);
+      setMostrarConfirmacionEliminar(false);
+    } finally {
+      setEliminandoCuenta(false);
+    }
   };
 
   if (loading) {
@@ -162,7 +234,6 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.infoRow}>
-
             <View style={styles.infoTextBox}>
               <Text style={styles.infoLabel}>Instagram</Text>
               <Text style={styles.infoValue}>
@@ -191,6 +262,39 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        <View style={styles.settingsContainer}>
+          <TouchableOpacity
+            style={styles.settingsButton}
+            activeOpacity={0.85}
+            onPress={() => setMostrarConfiguracion(!mostrarConfiguracion)}
+          >
+            <View style={styles.settingsLeft}>
+              <Settings size={20} color="#7528F0" />
+              <Text style={styles.settingsText}>Configuración</Text>
+            </View>
+
+            {mostrarConfiguracion ? (
+              <ChevronUp size={20} color="#7528F0" />
+            ) : (
+              <ChevronDown size={20} color="#7528F0" />
+            )}
+          </TouchableOpacity>
+
+          {mostrarConfiguracion && (
+            <View style={styles.settingsDropdown}>
+              <TouchableOpacity
+                style={styles.deleteAccountButton}
+                activeOpacity={0.85}
+                onPress={abrirConfirmacionEliminar}
+                disabled={eliminandoCuenta}
+              >
+                <Trash2 size={18} color="#E53935" />
+                <Text style={styles.deleteAccountText}>Eliminar cuenta</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
         <TouchableOpacity
           style={styles.logoutButton}
           activeOpacity={0.85}
@@ -200,6 +304,62 @@ export default function ProfileScreen() {
           <Text style={styles.logoutText}>Cerrar sesión</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal
+        visible={mostrarConfirmacionEliminar}
+        transparent
+        animationType="fade"
+        onRequestClose={cerrarConfirmacionEliminar}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              activeOpacity={0.85}
+              onPress={cerrarConfirmacionEliminar}
+              disabled={eliminandoCuenta}
+            >
+              <X size={20} color="#8D8A99" />
+            </TouchableOpacity>
+
+            <View style={styles.modalIconBox}>
+              <Trash2 size={28} color="#E53935" />
+            </View>
+
+            <Text style={styles.modalTitle}>Eliminar cuenta</Text>
+
+            <Text style={styles.modalText}>
+              ¿Estás seguro de que querés eliminar tu cuenta? Esta acción no se
+              puede deshacer.
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                activeOpacity={0.85}
+                onPress={cerrarConfirmacionEliminar}
+                disabled={eliminandoCuenta}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.confirmDeleteButton,
+                  eliminandoCuenta && styles.confirmDeleteButtonDisabled,
+                ]}
+                activeOpacity={0.85}
+                onPress={eliminarCuenta}
+                disabled={eliminandoCuenta}
+              >
+                <Text style={styles.confirmDeleteButtonText}>
+                  {eliminandoCuenta ? "Eliminando..." : "Sí, eliminar"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <BottomNav />
     </View>
@@ -214,7 +374,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 28,
     paddingTop: 70,
-    paddingBottom: 130,
+    paddingBottom: 150,
   },
   header: {
     flexDirection: "row",
@@ -325,6 +485,51 @@ const styles = StyleSheet.create({
     color: "#8D8A99",
     lineHeight: 21,
   },
+  settingsContainer: {
+    marginTop: 4,
+    marginBottom: 18,
+  },
+  settingsButton: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#E0D9F4",
+  },
+  settingsLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  settingsText: {
+    marginLeft: 10,
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#332047",
+  },
+  settingsDropdown: {
+    marginTop: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#F3D0D0",
+  },
+  deleteAccountButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  deleteAccountText: {
+    marginLeft: 10,
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#E53935",
+  },
   logoutButton: {
     height: 54,
     borderRadius: 18,
@@ -339,5 +544,87 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+  },
+  modalCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    padding: 24,
+    alignItems: "center",
+  },
+  modalCloseButton: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#F4F6FB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalIconBox: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: "#FFF1F2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#332047",
+    marginBottom: 8,
+  },
+  modalText: {
+    fontSize: 14,
+    color: "#7B7785",
+    textAlign: "center",
+    lineHeight: 21,
+    marginBottom: 22,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    width: "100%",
+  },
+  cancelButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "#F1ECFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    color: "#7528F0",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "#E53935",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+  },
+  confirmDeleteButtonDisabled: {
+    opacity: 0.65,
+  },
+  confirmDeleteButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "900",
   },
 });

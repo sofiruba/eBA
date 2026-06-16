@@ -1,9 +1,30 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const Usuario = require("../models/Usuario");
 const enviarEmail = require("../utils/email");
 const passport = require("../utils/passport");
 
 const router = express.Router();
+
+const safeRequire = (ruta) => {
+  try {
+    return require(ruta);
+  } catch (error) {
+    console.log(`Modelo no disponible ${ruta}:`, error.message);
+    return null;
+  }
+};
+
+const Asistencia = safeRequire("../models/Asistencia");
+const SolicitudConexion = safeRequire("../models/SolicitudConexion");
+const Conexion = safeRequire("../models/Conexion");
+const Favorito = safeRequire("../models/Favorito");
+const Reporte = safeRequire("../models/Reporte");
+const Notificacion = safeRequire("../models/Notificacion");
+const LogActividad = safeRequire("../models/LogActividad");
+const Bloqueo = safeRequire("../models/Bloqueo");
+const Chat = safeRequire("../models/Chat");
+const Mensaje = safeRequire("../models/Mensaje");
 
 const generarCodigo = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -70,6 +91,22 @@ const armarUsuarioRespuesta = (usuario) => {
   };
 };
 
+const eliminarSiExiste = async (Modelo, filtro) => {
+  if (!Modelo) {
+    return { deletedCount: 0 };
+  }
+
+  return await Modelo.deleteMany(filtro);
+};
+
+const crearFiltroPorCampos = (campos, ids) => {
+  return {
+    $or: campos.map((campo) => ({
+      [campo]: { $in: ids },
+    })),
+  };
+};
+
 /* =========================
    GOOGLE AUTH
 ========================= */
@@ -107,13 +144,11 @@ router.get(
 );
 
 // POST /api/usuarios/auth/google/token
-// POST /api/usuarios/auth/google/token
 router.post("/auth/google/token", async (req, res) => {
   try {
     const { token } = req.body;
 
-    console.log("Body recibido Google:", req.body);
-    console.log("Token:", token ? token.substring(0, 30) + "..." : "VACÍO");
+    console.log("Login con Google recibido");
 
     if (!token) {
       return res.status(400).json({
@@ -121,15 +156,16 @@ router.post("/auth/google/token", async (req, res) => {
       });
     }
 
-    const googleRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const googleRes = await fetch(
+      "https://www.googleapis.com/oauth2/v3/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     const perfil = await googleRes.json();
-
-    console.log("Perfil Google:", perfil);
 
     if (!googleRes.ok || !perfil.email) {
       return res.status(401).json({
@@ -164,7 +200,6 @@ router.post("/auth/google/token", async (req, res) => {
         usuario.fotoPerfil = perfil.picture;
       }
 
-      // Por si es un usuario viejo creado sin contraseña
       if (!usuario.contrasenia) {
         usuario.contrasenia = `google-${perfil.sub}-${Date.now()}`;
       }
@@ -698,6 +733,230 @@ router.put("/:id/organizador", async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       error: "Error al actualizar usuario",
+      detalle: error.message,
+    });
+  }
+});
+
+// DELETE /api/usuarios/:id
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const usuario = await Usuario.findById(id);
+
+    if (!usuario) {
+      return res.status(404).json({
+        error: "Usuario no encontrado",
+      });
+    }
+
+    const ids = [id];
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      ids.push(new mongoose.Types.ObjectId(id));
+    }
+
+    const asistenciasEliminadas = await eliminarSiExiste(
+      Asistencia,
+      crearFiltroPorCampos(
+        [
+          "usuarioId",
+          "usuario",
+          "userId",
+          "usuarioAsistenteId",
+          "asistenteId",
+          "interesadoId",
+          "participanteId",
+          "usuarioInteresadoId",
+          "usuario._id",
+          "usuario.id",
+        ],
+        ids
+      )
+    );
+
+    const favoritosEliminados = await eliminarSiExiste(
+      Favorito,
+      crearFiltroPorCampos(
+        ["usuarioId", "usuario", "userId", "usuario._id", "usuario.id"],
+        ids
+      )
+    );
+
+    const solicitudesEliminadas = await eliminarSiExiste(
+      SolicitudConexion,
+      crearFiltroPorCampos(
+        [
+          "emisorId",
+          "receptorId",
+          "emisor",
+          "receptor",
+          "solicitanteId",
+          "solicitadoId",
+          "solicitante",
+          "solicitado",
+          "usuarioEmisorId",
+          "usuarioReceptorId",
+          "usuarioSolicitanteId",
+          "usuarioSolicitadoId",
+          "usuarioOrigenId",
+          "usuarioDestinoId",
+          "deUsuarioId",
+          "paraUsuarioId",
+          "desdeUsuarioId",
+          "haciaUsuarioId",
+          "origenId",
+          "destinoId",
+          "from",
+          "to",
+          "fromUser",
+          "toUser",
+        ],
+        ids
+      )
+    );
+
+    const conexionesEliminadas = await eliminarSiExiste(
+      Conexion,
+      crearFiltroPorCampos(
+        [
+          "usuarioAId",
+          "usuarioBId",
+          "usuarioA",
+          "usuarioB",
+          "usuario1Id",
+          "usuario2Id",
+          "usuario1",
+          "usuario2",
+          "usuarioId1",
+          "usuarioId2",
+          "usuarioUnoId",
+          "usuarioDosId",
+          "usuarios",
+          "participantes",
+        ],
+        ids
+      )
+    );
+
+    const notificacionesEliminadas = await eliminarSiExiste(
+      Notificacion,
+      crearFiltroPorCampos(
+        [
+          "usuarioId",
+          "usuario",
+          "emisorId",
+          "receptorId",
+          "emisor",
+          "receptor",
+          "usuarioDestinoId",
+          "usuarioOrigenId",
+          "destinatarioId",
+          "remitenteId",
+          "destinatario",
+          "remitente",
+        ],
+        ids
+      )
+    );
+
+    const reportesEliminados = await eliminarSiExiste(
+      Reporte,
+      crearFiltroPorCampos(
+        [
+          "usuarioId",
+          "usuario",
+          "reportanteId",
+          "reportadoId",
+          "reportante",
+          "reportado",
+          "usuarioReportadoId",
+          "usuarioReportanteId",
+        ],
+        ids
+      )
+    );
+
+    const logsEliminados = await eliminarSiExiste(
+      LogActividad,
+      crearFiltroPorCampos(["usuarioId", "usuario", "userId"], ids)
+    );
+
+    const bloqueosEliminados = await eliminarSiExiste(
+      Bloqueo,
+      crearFiltroPorCampos(
+        [
+          "bloqueadorId",
+          "bloqueadoId",
+          "bloqueador",
+          "bloqueado",
+          "usuarioBloqueadorId",
+          "usuarioBloqueadoId",
+          "usuarioId",
+        ],
+        ids
+      )
+    );
+
+    const chatsEliminados = await eliminarSiExiste(
+      Chat,
+      crearFiltroPorCampos(
+        [
+          "participantes",
+          "usuarios",
+          "usuarioAId",
+          "usuarioBId",
+          "usuarioA",
+          "usuarioB",
+        ],
+        ids
+      )
+    );
+
+    const mensajesEliminados = await eliminarSiExiste(
+      Mensaje,
+      crearFiltroPorCampos(
+        [
+          "usuarioId",
+          "usuario",
+          "emisorId",
+          "receptorId",
+          "emisor",
+          "receptor",
+          "remitenteId",
+          "destinatarioId",
+          "remitente",
+          "destinatario",
+          "autorId",
+          "autor",
+        ],
+        ids
+      )
+    );
+
+    await Usuario.findByIdAndDelete(id);
+
+    return res.json({
+      message: "Usuario eliminado correctamente",
+      aclaracion:
+        "Se eliminaron relaciones del usuario. Las publicaciones y comentarios quedan como historial para mostrarse como Usuario eliminado.",
+      detalle: {
+        asistenciasEliminadas: asistenciasEliminadas.deletedCount,
+        favoritosEliminados: favoritosEliminados.deletedCount,
+        solicitudesEliminadas: solicitudesEliminadas.deletedCount,
+        conexionesEliminadas: conexionesEliminadas.deletedCount,
+        notificacionesEliminadas: notificacionesEliminadas.deletedCount,
+        reportesEliminados: reportesEliminados.deletedCount,
+        logsEliminados: logsEliminados.deletedCount,
+        bloqueosEliminados: bloqueosEliminados.deletedCount,
+        chatsEliminados: chatsEliminados.deletedCount,
+        mensajesEliminados: mensajesEliminados.deletedCount,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error al eliminar usuario",
       detalle: error.message,
     });
   }

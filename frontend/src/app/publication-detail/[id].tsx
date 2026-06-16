@@ -19,6 +19,7 @@ import CommentThread from "../../components/comments/CommentThread";
 
 import { Usuario } from "../../types/Usuario";
 import { Publicacion, Comentario } from "../../types/Social";
+import { Evento } from "@/types/Evento";
 
 export default function PublicationDetailScreen() {
     const { id } = useLocalSearchParams();
@@ -96,6 +97,15 @@ export default function PublicationDetailScreen() {
         }
     };
 
+    const obtenerUsuarioSeguro = (usuario?: Usuario | string | null) => {
+  if (!usuario || typeof usuario === "string") return null;
+  return usuario;
+};
+
+const obtenerEventoSeguro = (evento?: Evento | string | null) => {
+  if (!evento || typeof evento === "string") return null;
+  return evento;
+};
     const crearComentario = async () => {
         try {
             if (!nuevoComentario.trim()) {
@@ -236,6 +246,8 @@ export default function PublicationDetailScreen() {
         );
     }
 
+    const usuarioPublicacion = obtenerUsuarioSeguro(publicacion?.usuarioId);
+const eventoPublicacion = obtenerEventoSeguro(publicacion?.eventoId);
     return (
         <View style={styles.screen}>
             <ScrollView
@@ -248,15 +260,15 @@ export default function PublicationDetailScreen() {
 
                 <View style={styles.postCard}>
                     <View style={styles.postHeader}>
-                        <UserAvatar usuario={publicacion.usuarioId} size={46} />
+                        <UserAvatar usuario={usuarioPublicacion} size={46} />
 
                         <View style={styles.postUserInfo}>
                             <Text style={styles.postUserName}>
-                                {publicacion.usuarioId?.nombre || "Usuario"}
+                                {usuarioPublicacion?.nombre || "Usuario"}
                             </Text>
 
                             <Text style={styles.postUsername}>
-                                @{publicacion.usuarioId?.nombreUsuario || "usuario"}
+                                @{usuarioPublicacion?.nombreUsuario || "usuario"}
                             </Text>
 
                             <Text style={styles.postDate}>
@@ -271,16 +283,16 @@ export default function PublicationDetailScreen() {
 
                     <Text style={styles.postContent}>{publicacion.contenido}</Text>
 
-                    {publicacion.eventoId?.nombre && (
+                    {eventoPublicacion?.nombre && (
                         <TouchableOpacity
                             style={styles.eventTag}
                             activeOpacity={0.85}
                             onPress={() =>
-                                router.push(`/event-detail/${publicacion.eventoId._id}` as any)
+                                router.push(`/event-detail/${eventoPublicacion._id}` as any)
                             }
                         >
                             <Text style={styles.eventTagText}>
-                                Evento: {publicacion.eventoId.nombre}
+                                Evento: {eventoPublicacion.nombre}
                             </Text>
                         </TouchableOpacity>
                     )}
@@ -321,35 +333,37 @@ export default function PublicationDetailScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {comentariosPrincipales.length === 0 ? (
-                    <View style={styles.emptyCommentsCard}>
-                        <MessageCircle size={34} color="#8B35E8" />
+               {comentarios.length === 0 ? (
+  <EmptyState
+    icon={<MessageCircle size={46} color="#8B35E8" />}
+    title="Todavía no hay comentarios"
+    text="Sé la primera persona en comentar esta publicación."
+  />
+) : (
+  comentarios.map((comentario) => {
+    const usuarioComentario = obtenerUsuarioSeguro(comentario.usuarioId);
 
-                        <Text style={styles.emptyCommentsTitle}>
-                            Todavía no hay comentarios
-                        </Text>
+    return (
+      <View key={comentario._id} style={styles.commentCard}>
+        <View style={styles.commentHeader}>
+          <UserAvatar usuario={usuarioComentario} size={34} />
 
-                        <Text style={styles.emptyCommentsText}>
-                            Sé la primera persona en responder esta publicación.
-                        </Text>
-                    </View>
-                ) : (
-                    comentariosPrincipales.map((comentario) => (
-                        <CommentThread
-                            key={comentario._id}
-                            comentario={comentario}
-                            comentarios={comentarios}
-                            respuestasTexto={respuestas}
-                            onChangeRespuesta={(comentarioId, texto) =>
-                                setRespuestas((prev) => ({
-                                    ...prev,
-                                    [comentarioId]: texto,
-                                }))
-                            }
-                            onEnviarRespuesta={crearRespuesta}
-                        />
-                    ))
-                )}
+          <View style={styles.commentUserInfo}>
+            <Text style={styles.commentUserName}>
+              {usuarioComentario?.nombre || "Usuario eliminado"}
+            </Text>
+
+            <Text style={styles.commentUsername}>
+              @{usuarioComentario?.nombreUsuario || "usuario_eliminado"}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.commentText}>{comentario.contenido}</Text>
+      </View>
+    );
+  })
+)}
             </ScrollView>
         </View>
     );
@@ -486,4 +500,42 @@ const styles = StyleSheet.create({
         fontWeight: "800",
         marginBottom: 2,
     },
+    commentCard: {
+  backgroundColor: "#FFFFFF",
+  borderRadius: 20,
+  padding: 14,
+  marginBottom: 12,
+  borderWidth: 1,
+  borderColor: "rgba(0,0,0,0.04)",
+},
+
+commentHeader: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginBottom: 8,
+},
+
+commentUserInfo: {
+  marginLeft: 10,
+  flex: 1,
+},
+
+commentUserName: {
+  fontSize: 13,
+  fontWeight: "900",
+  color: "#2D2934",
+},
+
+commentUsername: {
+  fontSize: 11,
+  color: "#8B35E8",
+  fontWeight: "800",
+  marginTop: 2,
+},
+
+commentText: {
+  fontSize: 14,
+  color: "#332047",
+  lineHeight: 20,
+},
 });
