@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
 } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
   Plus,
@@ -81,12 +81,16 @@ export default function EventPeopleScreen() {
   const [loadingPublicaciones, setLoadingPublicaciones] = useState(false);
   const [modalPublicacionVisible, setModalPublicacionVisible] = useState(false);
 
-  useEffect(() => {
-    iniciarPantalla();
-  }, [id]);
+  useFocusEffect(
+    useCallback(() => {
+      iniciarPantalla();
+    }, [id])
+  );
 
   const iniciarPantalla = async () => {
     try {
+      setLoading(true);
+
       const usuarioGuardado = await AsyncStorage.getItem("usuario");
 
       if (!usuarioGuardado) {
@@ -130,8 +134,8 @@ export default function EventPeopleScreen() {
       if (!responseAsistencias.ok) {
         alert(
           dataAsistencias.message ||
-          dataAsistencias.error ||
-          "Error al traer personas interesadas."
+            dataAsistencias.error ||
+            "Error al traer personas interesadas."
         );
         return;
       }
@@ -194,6 +198,8 @@ export default function EventPeopleScreen() {
   const cargarPublicaciones = async (eventoId: string) => {
     try {
       setLoadingPublicaciones(true);
+      setPublicaciones([]);
+      setComentariosPorPublicacion({});
 
       const response = await fetch(
         `${API_URL}/api/publicaciones/evento/${eventoId}`

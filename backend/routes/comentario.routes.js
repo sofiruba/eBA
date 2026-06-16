@@ -116,5 +116,91 @@ router.put("/:id", async (req, res) => {
     });
   }
 });
+// PUT /api/comentarios/:id
+router.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { usuarioId, contenido } = req.body;
 
+    if (!usuarioId || !contenido) {
+      return res.status(400).json({
+        error: "usuarioId y contenido son obligatorios",
+      });
+    }
+
+    const comentario = await Comentario.findById(id);
+
+    if (!comentario) {
+      return res.status(404).json({
+        error: "Comentario no encontrado",
+      });
+    }
+
+    if (comentario.usuarioId.toString() !== usuarioId.toString()) {
+      return res.status(403).json({
+        error: "No tenés permiso para editar este comentario",
+      });
+    }
+
+    comentario.contenido = contenido.trim();
+
+    await comentario.save();
+
+    const comentarioActualizado = await Comentario.findById(id).populate(
+      "usuarioId",
+      "nombre nombreUsuario email fotoPerfil intereses bio"
+    );
+
+    return res.json({
+      message: "Comentario actualizado correctamente",
+      comentario: comentarioActualizado,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error al actualizar comentario",
+      detalle: error.message,
+    });
+  }
+});
+
+// DELETE /api/comentarios/:id
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { usuarioId } = req.body;
+
+    if (!usuarioId) {
+      return res.status(400).json({
+        error: "usuarioId es obligatorio",
+      });
+    }
+
+    const comentario = await Comentario.findById(id);
+
+    if (!comentario) {
+      return res.status(404).json({
+        error: "Comentario no encontrado",
+      });
+    }
+
+    if (comentario.usuarioId.toString() !== usuarioId.toString()) {
+      return res.status(403).json({
+        error: "No tenés permiso para eliminar este comentario",
+      });
+    }
+
+    await Comentario.deleteMany({
+      $or: [{ _id: id }, { comentarioPadreId: id }],
+    });
+
+    return res.json({
+      message: "Comentario eliminado correctamente",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error al eliminar comentario",
+      detalle: error.message,
+    });
+  }
+});
 module.exports = router;

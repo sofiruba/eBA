@@ -142,5 +142,93 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+// PUT /api/publicaciones/:id
+router.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { usuarioId, contenido } = req.body;
+
+    if (!usuarioId || !contenido) {
+      return res.status(400).json({
+        error: "usuarioId y contenido son obligatorios",
+      });
+    }
+
+    const publicacion = await Publicacion.findById(id);
+
+    if (!publicacion) {
+      return res.status(404).json({
+        error: "Publicación no encontrada",
+      });
+    }
+
+    if (publicacion.usuarioId.toString() !== usuarioId.toString()) {
+      return res.status(403).json({
+        error: "No tenés permiso para editar esta publicación",
+      });
+    }
+
+    publicacion.contenido = contenido.trim();
+
+    await publicacion.save();
+
+    const publicacionActualizada = await Publicacion.findById(id)
+      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
+      .populate("eventoId");
+
+    return res.json({
+      message: "Publicación actualizada correctamente",
+      publicacion: publicacionActualizada,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error al actualizar publicación",
+      detalle: error.message,
+    });
+  }
+});
+
+// DELETE /api/publicaciones/:id
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { usuarioId } = req.body;
+
+    if (!usuarioId) {
+      return res.status(400).json({
+        error: "usuarioId es obligatorio",
+      });
+    }
+
+    const publicacion = await Publicacion.findById(id);
+
+    if (!publicacion) {
+      return res.status(404).json({
+        error: "Publicación no encontrada",
+      });
+    }
+
+    if (publicacion.usuarioId.toString() !== usuarioId.toString()) {
+      return res.status(403).json({
+        error: "No tenés permiso para eliminar esta publicación",
+      });
+    }
+
+    await Comentario.deleteMany({
+      publicacionId: id,
+    });
+
+    await Publicacion.findByIdAndDelete(id);
+
+    return res.json({
+      message: "Publicación eliminada correctamente",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error al eliminar publicación",
+      detalle: error.message,
+    });
+  }
+});
 
 module.exports = router;
