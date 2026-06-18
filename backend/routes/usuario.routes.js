@@ -91,6 +91,9 @@ const armarUsuarioRespuesta = (usuario) => {
   };
 };
 
+const esErrorNombreUsuarioDuplicado = (error) =>
+  error?.code === 11000 && error?.keyPattern?.nombreUsuario;
+
 const eliminarSiExiste = async (Modelo, filtro) => {
   if (!Modelo) {
     return { deletedCount: 0 };
@@ -196,8 +199,8 @@ router.post("/auth/google/token", async (req, res) => {
         );
       }
 
-      if (!usuario.fotoPerfil && perfil.picture) {
-        usuario.fotoPerfil = perfil.picture;
+      if (usuario.fotoPerfil?.includes("googleusercontent.com")) {
+        usuario.fotoPerfil = "";
       }
 
       if (!usuario.contrasenia) {
@@ -217,7 +220,7 @@ router.post("/auth/google/token", async (req, res) => {
         nombreUsuario: nombreUsuarioFinal,
         email: emailGoogle,
         contrasenia: `google-${perfil.sub}-${Date.now()}`,
-        fotoPerfil: perfil.picture || "",
+        fotoPerfil: "",
         emailVerificado: true,
         esOrganizador: false,
         intereses: [],
@@ -357,6 +360,12 @@ router.post("/registro", async (req, res) => {
       usuario: armarUsuarioRespuesta(nuevoUsuario),
     });
   } catch (error) {
+    if (esErrorNombreUsuarioDuplicado(error)) {
+      return res.status(400).json({
+        error: "Ese nombre de usuario ya está en uso",
+      });
+    }
+
     return res.status(500).json({
       error: "Error al registrar usuario",
       detalle: error.message,
@@ -700,6 +709,12 @@ router.put("/:id", async (req, res) => {
       usuario: armarUsuarioRespuesta(usuario),
     });
   } catch (error) {
+    if (esErrorNombreUsuarioDuplicado(error)) {
+      return res.status(400).json({
+        error: "Ese nombre de usuario ya está en uso",
+      });
+    }
+
     return res.status(500).json({
       error: "Error al actualizar perfil",
       detalle: error.message,

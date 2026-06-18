@@ -81,6 +81,8 @@ router.get("/promocionados", async (req, res) => {
 
     const eventos = await Evento.find({
       esPromocionado: true,
+      activo: true,
+      fecha: { $gte: new Date() },
     }).sort({ fecha: 1 });
 
     res.json({

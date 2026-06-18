@@ -8,9 +8,19 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Send, Shield } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Check,
+  MessageCircle,
+  Pencil,
+  Send,
+  Shield,
+  Trash2,
+  X,
+} from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { API_URL } from "../../config/api";
@@ -28,9 +38,11 @@ type Mensaje = {
   _id: string;
   chatId: string;
   usuarioEmisorId: Usuario | string;
+  mensajePadreId?: Mensaje | string | null;
   contenido: string;
   fechaEnvio?: string;
   createdAt?: string;
+  updatedAt?: string;
 };
 
 export default function ChatDetailScreen() {
@@ -42,6 +54,11 @@ export default function ChatDetailScreen() {
   const [texto, setTexto] = useState("");
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
+  const [mensajeSeleccionadoId, setMensajeSeleccionadoId] = useState<string | null>(null);
+  const [mensajeEditandoId, setMensajeEditandoId] = useState<string | null>(null);
+  const [textoEditado, setTextoEditado] = useState("");
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [mensajeRespondiendo, setMensajeRespondiendo] = useState<Mensaje | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
 
   const scrollAlFinal = (animado = true) => {
@@ -154,6 +171,7 @@ export default function ChatDetailScreen() {
         body: JSON.stringify({
           chatId: String(id),
           usuarioEmisorId: usuarioActualId,
+          mensajePadreId: mensajeRespondiendo?._id || null,
           contenido: texto.trim(),
         }),
       });
@@ -170,16 +188,129 @@ export default function ChatDetailScreen() {
         {
           ...data.mensaje,
           usuarioEmisorId: usuarioActualId,
+          mensajePadreId: mensajeRespondiendo || data.mensaje.mensajePadreId || null,
           fechaEnvio: data.mensaje.fechaEnvio || new Date().toISOString(),
         },
       ]);
       setTexto("");
+      setMensajeRespondiendo(null);
       scrollAlFinal(true);
     } catch (error) {
       console.log("Error enviando mensaje:", error);
       alert("No se pudo conectar con el servidor.");
     } finally {
       setEnviando(false);
+    }
+  };
+
+  const confirmarAccion = (
+    titulo: string,
+    mensaje: string,
+    accion: () => void
+  ) => {
+    if (Platform.OS === "web") {
+      const confirmado = window.confirm(`${titulo}\n\n${mensaje}`);
+      if (confirmado) accion();
+      return;
+    }
+
+    Alert.alert(titulo, mensaje, [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Sí", style: "destructive", onPress: accion },
+    ]);
+  };
+
+  const iniciarEdicionMensaje = (mensaje: Mensaje) => {
+    setMensajeEditandoId(mensaje._id);
+    setTextoEditado(mensaje.contenido);
+    setMensajeSeleccionadoId(null);
+  };
+
+  const iniciarRespuestaMensaje = (mensaje: Mensaje) => {
+    setMensajeRespondiendo(mensaje);
+    setMensajeSeleccionadoId(null);
+    setMensajeEditandoId(null);
+  };
+
+  const cancelarEdicionMensaje = () => {
+    setMensajeEditandoId(null);
+    setTextoEditado("");
+  };
+
+  const guardarEdicionMensaje = async (mensajeId: string) => {
+    try {
+      if (!usuarioActualId || !textoEditado.trim()) {
+        alert("El mensaje no puede quedar vacío.");
+        return;
+      }
+
+      setGuardandoEdicion(true);
+
+      const response = await fetch(`${API_URL}/api/mensajes/${mensajeId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          usuarioId: usuarioActualId,
+          contenido: textoEditado.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "No se pudo editar el mensaje.");
+        return;
+      }
+
+      setMensajes((prev) =>
+        prev.map((mensaje) =>
+          mensaje._id === mensajeId
+            ? {
+                ...mensaje,
+                contenido: data.mensaje?.contenido || textoEditado.trim(),
+                updatedAt: data.mensaje?.updatedAt || new Date().toISOString(),
+              }
+            : mensaje
+        )
+      );
+      cancelarEdicionMensaje();
+    } catch (error) {
+      console.log("Error editando mensaje:", error);
+      alert("No se pudo conectar con el servidor.");
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  };
+
+  const eliminarMensaje = async (mensajeId: string) => {
+    try {
+      if (!usuarioActualId) return;
+
+      const response = await fetch(`${API_URL}/api/mensajes/${mensajeId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          usuarioId: usuarioActualId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "No se pudo eliminar el mensaje.");
+        return;
+      }
+
+      setMensajes((prev) => prev.filter((mensaje) => mensaje._id !== mensajeId));
+      setMensajeSeleccionadoId(null);
+      if (mensajeEditandoId === mensajeId) cancelarEdicionMensaje();
+    } catch (error) {
+      console.log("Error eliminando mensaje:", error);
+      alert("No se pudo conectar con el servidor.");
     }
   };
 
@@ -190,6 +321,25 @@ export default function ChatDetailScreen() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const obtenerNombreUsuarioMensaje = (usuario?: Usuario | string | null) => {
+    if (!usuario || typeof usuario === "string") return "Alguien";
+    return usuario.nombre || usuario.nombreUsuario || "Alguien";
+  };
+
+  const obtenerMensajeRespondido = (mensaje: Mensaje) => {
+    const padre = mensaje.mensajePadreId;
+
+    if (!padre) return null;
+    if (typeof padre === "object") return padre;
+
+    return mensajes.find((item) => item._id === padre) || null;
+  };
+
+  const obtenerPreviewMensaje = (contenido?: string) => {
+    if (!contenido) return "Mensaje";
+    return contenido.length > 64 ? `${contenido.slice(0, 61)}...` : contenido;
   };
 
   if (loading) {
@@ -233,25 +383,172 @@ export default function ChatDetailScreen() {
         {mensajes.map((mensaje) => {
           const emisorId = obtenerUsuarioId(mensaje.usuarioEmisorId);
           const esMio = emisorId === usuarioActualId;
+          const mensajeRespondido = obtenerMensajeRespondido(mensaje);
 
           return (
             <View
               key={mensaje._id}
               style={[styles.messageRow, esMio && styles.messageRowMine]}
             >
-              <View style={[styles.messageBubble, esMio && styles.messageMine]}>
-                <Text style={[styles.messageText, esMio && styles.messageTextMine]}>
-                  {mensaje.contenido}
-                </Text>
+              <TouchableOpacity
+                activeOpacity={esMio ? 0.82 : 1}
+                onPress={() =>
+                  setMensajeSeleccionadoId((actual) =>
+                    actual === mensaje._id ? null : mensaje._id
+                  )
+                }
+                style={[
+                  styles.messageBubble,
+                  esMio && styles.messageMine,
+                  mensajeSeleccionadoId === mensaje._id && styles.messageSelected,
+                ]}
+              >
+                {mensajeEditandoId === mensaje._id ? (
+                  <View style={styles.editMessageBox}>
+                    <TextInput
+                      style={styles.editMessageInput}
+                      value={textoEditado}
+                      onChangeText={setTextoEditado}
+                      multiline
+                      autoFocus
+                      placeholder="Editar mensaje..."
+                      placeholderTextColor="rgba(255,255,255,0.72)"
+                    />
 
-                <Text style={[styles.messageTime, esMio && styles.messageTimeMine]}>
-                  {formatearHora(mensaje.fechaEnvio || mensaje.createdAt)}
-                </Text>
-              </View>
+                    <View style={styles.editMessageActions}>
+                      <TouchableOpacity
+                        style={styles.messageActionButton}
+                        activeOpacity={0.85}
+                        disabled={guardandoEdicion}
+                        onPress={cancelarEdicionMensaje}
+                      >
+                        <X size={14} color="#FFFFFF" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.messageActionButton}
+                        activeOpacity={0.85}
+                        disabled={guardandoEdicion || !textoEditado.trim()}
+                        onPress={() => guardarEdicionMensaje(mensaje._id)}
+                      >
+                        <Check size={14} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    {mensajeRespondido && (
+                      <View
+                        style={[
+                          styles.replyPreview,
+                          esMio && styles.replyPreviewMine,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.replyPreviewName,
+                            esMio && styles.replyPreviewNameMine,
+                          ]}
+                        >
+                          {obtenerNombreUsuarioMensaje(
+                            mensajeRespondido.usuarioEmisorId
+                          )}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.replyPreviewText,
+                            esMio && styles.replyPreviewTextMine,
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {obtenerPreviewMensaje(mensajeRespondido.contenido)}
+                        </Text>
+                      </View>
+                    )}
+
+                    <Text style={[styles.messageText, esMio && styles.messageTextMine]}>
+                      {mensaje.contenido}
+                    </Text>
+
+                    <Text style={[styles.messageTime, esMio && styles.messageTimeMine]}>
+                      {mensaje.updatedAt && mensaje.updatedAt !== mensaje.createdAt
+                        ? "Editado · "
+                        : ""}
+                      {formatearHora(mensaje.fechaEnvio || mensaje.createdAt)}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {mensajeSeleccionadoId === mensaje._id && !mensajeEditandoId && (
+                <View style={styles.messageActions}>
+                  <TouchableOpacity
+                    style={styles.messageActionPill}
+                    activeOpacity={0.85}
+                    onPress={() => iniciarRespuestaMensaje(mensaje)}
+                  >
+                    <MessageCircle size={14} color="#6D28E8" />
+                    <Text style={styles.messageActionText}>Responder</Text>
+                  </TouchableOpacity>
+
+                  {esMio && (
+                    <TouchableOpacity
+                      style={styles.messageActionPill}
+                      activeOpacity={0.85}
+                      onPress={() => iniciarEdicionMensaje(mensaje)}
+                    >
+                      <Pencil size={14} color="#6D28E8" />
+                      <Text style={styles.messageActionText}>Editar</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {esMio && (
+                    <TouchableOpacity
+                      style={[styles.messageActionPill, styles.messageDeletePill]}
+                      activeOpacity={0.85}
+                      onPress={() =>
+                        confirmarAccion(
+                          "Eliminar mensaje",
+                          "¿Querés eliminar este mensaje?",
+                          () => eliminarMensaje(mensaje._id)
+                        )
+                      }
+                    >
+                      <Trash2 size={14} color="#E53935" />
+                      <Text style={[styles.messageActionText, styles.messageDeleteText]}>
+                        Eliminar
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
             </View>
           );
         })}
       </ScrollView>
+
+      {mensajeRespondiendo && (
+        <View style={styles.replyingBar}>
+          <View style={styles.replyingIndicator} />
+          <View style={styles.replyingTextBox}>
+            <Text style={styles.replyingTitle}>
+              Respondiendo a{" "}
+              {obtenerNombreUsuarioMensaje(mensajeRespondiendo.usuarioEmisorId)}
+            </Text>
+            <Text style={styles.replyingText} numberOfLines={1}>
+              {obtenerPreviewMensaje(mensajeRespondiendo.contenido)}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.replyingCloseButton}
+            activeOpacity={0.85}
+            onPress={() => setMensajeRespondiendo(null)}
+          >
+            <X size={16} color="#6F6D7A" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.inputBar}>
         <View style={styles.inputShell}>
@@ -346,13 +643,13 @@ const styles = StyleSheet.create({
     paddingBottom: 22,
   },
   messageRow: {
-    flexDirection: "row",
     marginBottom: 12,
   },
   messageRowMine: {
-    justifyContent: "flex-end",
+    alignItems: "flex-end",
   },
   messageBubble: {
+    alignSelf: "flex-start",
     maxWidth: "82%",
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
@@ -363,10 +660,18 @@ const styles = StyleSheet.create({
     borderColor: "#ECE8F4",
   },
   messageMine: {
+    alignSelf: "flex-end",
     backgroundColor: "#6D28E8",
     borderColor: "#6D28E8",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 6,
+  },
+  messageSelected: {
+    shadowColor: "#332047",
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   messageText: {
     fontSize: 15,
@@ -385,6 +690,130 @@ const styles = StyleSheet.create({
   },
   messageTimeMine: {
     color: "rgba(255,255,255,0.75)",
+  },
+  replyPreview: {
+    backgroundColor: "#F4F2FA",
+    borderLeftWidth: 3,
+    borderLeftColor: "#8B35E8",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 8,
+  },
+  replyPreviewMine: {
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderLeftColor: "#FFFFFF",
+  },
+  replyPreviewName: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: "#6D28E8",
+    marginBottom: 2,
+  },
+  replyPreviewNameMine: {
+    color: "#FFFFFF",
+  },
+  replyPreviewText: {
+    fontSize: 12,
+    color: "#6F6D7A",
+    lineHeight: 16,
+  },
+  replyPreviewTextMine: {
+    color: "rgba(255,255,255,0.82)",
+  },
+  messageActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 6,
+  },
+  messageActionPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "#E8E1F6",
+    gap: 5,
+  },
+  messageDeletePill: {
+    borderColor: "#FFD8DD",
+    backgroundColor: "#FFF3F5",
+  },
+  messageActionText: {
+    fontSize: 12,
+    color: "#6D28E8",
+    fontWeight: "900",
+  },
+  messageDeleteText: {
+    color: "#E53935",
+  },
+  editMessageBox: {
+    minWidth: 190,
+  },
+  editMessageInput: {
+    minHeight: 44,
+    maxHeight: 112,
+    color: "#FFFFFF",
+    fontSize: 15,
+    lineHeight: 21,
+    padding: 0,
+    textAlignVertical: "top",
+    outlineStyle: "none" as any,
+  },
+  editMessageActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 8,
+  },
+  messageActionButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  replyingBar: {
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#EEEAF7",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  replyingIndicator: {
+    width: 3,
+    height: 38,
+    borderRadius: 2,
+    backgroundColor: "#8B35E8",
+    marginRight: 10,
+  },
+  replyingTextBox: {
+    flex: 1,
+  },
+  replyingTitle: {
+    fontSize: 12,
+    color: "#6D28E8",
+    fontWeight: "900",
+    marginBottom: 2,
+  },
+  replyingText: {
+    fontSize: 13,
+    color: "#6F6D7A",
+  },
+  replyingCloseButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
   },
   inputBar: {
     paddingHorizontal: 16,

@@ -10,6 +10,14 @@ router.post("/", async (req, res) => {
   try {
     const mensaje = new Mensaje(req.body);
     await mensaje.save();
+    const mensajeRespuesta = await Mensaje.findById(mensaje._id).populate({
+      path: "mensajePadreId",
+      select: "contenido usuarioEmisorId",
+      populate: {
+        path: "usuarioEmisorId",
+        select: "nombre nombreUsuario",
+      },
+    });
 
     const chat = await Chat.findById(mensaje.chatId);
 
@@ -21,21 +29,31 @@ router.post("/", async (req, res) => {
         "nombre nombreUsuario"
       );
       const nombreEmisor = emisor?.nombre || emisor?.nombreUsuario || "Alguien";
+      const contenido = mensaje.contenido.trim();
       const preview =
-        mensaje.contenido.length > 80
-          ? `${mensaje.contenido.slice(0, 77)}...`
-          : mensaje.contenido;
+        contenido.length > 80 ? `${contenido.slice(0, 77)}...` : contenido;
+      const esChatGrupal = chat.participantes.length > 2;
 
-      const destinatarios = chat.participantes.filter(
-        (participanteId) =>
-          String(participanteId) !== String(mensaje.usuarioEmisorId)
-      );
+      const destinatarios = [
+        ...new Set(
+          chat.participantes
+            .map((participanteId) => String(participanteId))
+            .filter(
+              (participanteId) =>
+                participanteId !== String(mensaje.usuarioEmisorId)
+            )
+        ),
+      ];
+
+      const textoNotificacion = esChatGrupal
+        ? `${nombreEmisor} mandó un mensaje en el grupo: ${preview}`
+        : `${nombreEmisor} te mandó un mensaje: ${preview}`;
 
       await Promise.all(
         destinatarios.map((usuarioId) =>
           Notificacion.create({
             usuarioId,
-            mensaje: `${nombreEmisor} te mandó un mensaje: ${preview}`,
+            mensaje: textoNotificacion,
             tipo: "chat",
             entidadTipo: "chat",
             entidadId: chat._id,
@@ -45,7 +63,10 @@ router.post("/", async (req, res) => {
       );
     }
 
-    res.status(201).json({ message: "Mensaje creado correctamente", mensaje });
+    res.status(201).json({
+      message: "Mensaje creado correctamente",
+      mensaje: mensajeRespuesta || mensaje,
+    });
   } catch (error) {
     res.status(500).json({ error: "Error al crear mensaje", detalle: error.message });
   }
@@ -55,7 +76,15 @@ router.post("/", async (req, res) => {
 router.get("/chat/:chatId", async (req, res) => {
   try {
     const mensajes = await Mensaje.find({ chatId: req.params.chatId })
-      .populate("usuarioEmisorId", "nombre email")
+      .populate("usuarioEmisorId", "nombre nombreUsuario email")
+      .populate({
+        path: "mensajePadreId",
+        select: "contenido usuarioEmisorId",
+        populate: {
+          path: "usuarioEmisorId",
+          select: "nombre nombreUsuario",
+        },
+      })
       .sort({ fechaEnvio: 1 }); // orden cronológico
     res.json({ message: "Mensajes obtenidos correctamente", mensajes });
   } catch (error) {
@@ -78,11 +107,62 @@ router.put("/:id/leido", async (req, res) => {
   }
 });
 
+// Editar mensaje
+router.put("/:id", async (req, res) => {
+  try {
+    const { usuarioId, contenido } = req.body;
+
+    if (!usuarioId || !contenido?.trim()) {
+      return res.status(400).json({
+        error: "usuarioId y contenido son obligatorios",
+      });
+    }
+
+    const mensaje = await Mensaje.findById(req.params.id);
+
+    if (!mensaje) {
+      return res.status(404).json({ error: "Mensaje no encontrado" });
+    }
+
+    if (String(mensaje.usuarioEmisorId) !== String(usuarioId)) {
+      return res.status(403).json({
+        error: "No tenés permiso para editar este mensaje",
+      });
+    }
+
+    mensaje.contenido = contenido.trim();
+    await mensaje.save();
+
+    res.json({ message: "Mensaje actualizado correctamente", mensaje });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al actualizar mensaje",
+      detalle: error.message,
+    });
+  }
+});
+
 // Eliminar mensaje
 router.delete("/:id", async (req, res) => {
   try {
-    const mensaje = await Mensaje.findByIdAndDelete(req.params.id);
+    const { usuarioId } = req.body;
+
+    if (!usuarioId) {
+      return res.status(400).json({ error: "usuarioId es obligatorio" });
+    }
+
+    const mensaje = await Mensaje.findById(req.params.id);
+
     if (!mensaje) return res.status(404).json({ error: "Mensaje no encontrado" });
+
+    if (String(mensaje.usuarioEmisorId) !== String(usuarioId)) {
+      return res.status(403).json({
+        error: "No tenés permiso para eliminar este mensaje",
+      });
+    }
+
+    await Mensaje.findByIdAndDelete(req.params.id);
+
     res.json({ message: "Mensaje eliminado correctamente" });
   } catch (error) {
     res.status(500).json({ error: "Error al eliminar mensaje", detalle: error.message });

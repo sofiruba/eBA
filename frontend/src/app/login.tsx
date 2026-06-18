@@ -6,6 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
   Platform,
+  Image,
 } from "react-native";
 import { router } from "expo-router";
 import { EyeOff, Eye } from "lucide-react-native";
@@ -255,17 +256,19 @@ const handleLoginGoogle = async (token: string) => {
         <Text style={styles.continueText}>O continuá con...</Text>
 
         <View style={styles.socialRow}>
-          {/* ── Botón Google ── */}
           <TouchableOpacity
-              style={[styles.socialButton, (!request || loading) && styles.disabledButton]}
-              onPress={iniciarGoogle}
-              disabled={!request || loading}
-            >
-              <Text style={styles.socialText}>Google</Text>
-            </TouchableOpacity>
-
-          <TouchableOpacity style={styles.socialButton}>
-            <Text style={styles.socialText}>Apple</Text>
+            style={[styles.socialButton, (!request || loading) && styles.disabledButton]}
+            onPress={iniciarGoogle}
+            disabled={!request || loading}
+            activeOpacity={0.85}
+          >
+            <View style={styles.googleIconBox}>
+              <Image
+                source={require("@/assets/images/google-g.png")}
+                style={styles.googleIcon}
+              />
+            </View>
+            <Text style={styles.socialText}>Google</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -378,19 +381,36 @@ const styles = StyleSheet.create({
   },
   socialRow: {
     flexDirection: "row",
+    justifyContent: "center",
+    width: "100%",
   },
   socialButton: {
-    width: 120,
-    height: 42,
+    width: 156,
+    height: 46,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#D8D5E2",
+    backgroundColor: "#FAFAFF",
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 6,
+    flexDirection: "row",
+    gap: 10,
+  },
+  googleIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "#4285F4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  googleIcon: {
+    width: 18,
+    height: 18,
   },
   socialText: {
-    color: "#9A98A6",
+    color: "#3A2451",
     fontSize: 14,
+    fontWeight: "700",
   },
 });

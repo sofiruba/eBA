@@ -12,6 +12,11 @@ const MensajeSchema = new mongoose.Schema(
       ref: "Usuario",
       required: true,
     },
+    mensajePadreId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Mensaje",
+      default: null,
+    },
     contenido: {
       type: String,
       required: true,

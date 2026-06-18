@@ -13,6 +13,7 @@ import Logo from "../components/Logo";
 
 import { Asistencia } from "../types/Asistencia";
 import { Evento } from "../types/Evento";
+import { eventoYaPaso } from "../utils/eventHelpers";
 
 export default function FavoritesScreen() {
   const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
@@ -107,6 +108,11 @@ export default function FavoritesScreen() {
     return "Interesado";
   };
 
+  const obtenerEstadoEvento = (evento: Evento, estado?: string) => {
+    if (eventoYaPaso(evento.fecha)) return "Este concierto ya pasó";
+    return obtenerTextoEstado(estado);
+  };
+
   const eventosActivos = asistencias.filter(
     (asistencia) => asistencia.estado !== "cancelado"
   );
@@ -164,7 +170,7 @@ export default function FavoritesScreen() {
                 <EventListCard
                   key={asistencia._id}
                   evento={evento}
-                  status={obtenerTextoEstado(asistencia.estado)}
+                  status={obtenerEstadoEvento(evento, asistencia.estado)}
                   showRemove
                   onRemovePress={() => sacarDeMisEventos(asistencia._id)}
                   onPress={() => irAEvento(evento._id)}

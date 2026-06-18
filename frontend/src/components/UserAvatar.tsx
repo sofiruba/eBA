@@ -7,10 +7,12 @@ type UserAvatarProps = {
 };
 
 export default function UserAvatar({ usuario, size = 42 }: UserAvatarProps) {
-const obtenerInicial = () => {
-  if (!usuario?.nombre) return "?";
-  return usuario.nombre.charAt(0).toUpperCase();
-};
+  const obtenerInicial = () => {
+    if (!usuario?.nombre) return "?";
+    return usuario.nombre.trim().charAt(0).toUpperCase();
+  };
+
+  const avatarTextSize = Math.max(14, Math.round(size * 0.42));
 
   if (usuario?.fotoPerfil) {
     return (
@@ -37,7 +39,9 @@ const obtenerInicial = () => {
         },
       ]}
     >
-      <Text style={styles.avatarText}>{obtenerInicial()}</Text>
+      <Text style={[styles.avatarText, { fontSize: avatarTextSize }]}>
+        {obtenerInicial()}
+      </Text>
     </View>
   );
 }

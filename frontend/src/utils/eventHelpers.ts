@@ -45,6 +45,18 @@ export const formatearFechaLarga = (fecha?: string) => {
   });
 };
 
+export const eventoYaPaso = (fecha?: string) => {
+  if (!fecha) return false;
+
+  const fechaDate = new Date(fecha);
+
+  if (isNaN(fechaDate.getTime())) {
+    return false;
+  }
+
+  return fechaDate.getTime() < Date.now();
+};
+
 export const obtenerUbicacion = (ubicacion?: Ubicacion) => {
   if (!ubicacion) return "Ubicación a confirmar";
 

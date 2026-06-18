@@ -26,6 +26,7 @@ import {
   obtenerImagen,
   formatearFecha,
   obtenerUbicacion,
+  eventoYaPaso,
 } from "../utils/eventHelpers";
 import { getCached, setCached } from "../utils/cache";
 
@@ -218,17 +219,18 @@ export default function HomeScreen() {
   const irAExploreRecomendados = () => {
     router.push("/explore?filtro=recomendados" as any);
   };
-  const eventosDestacados = eventos.filter((evento) => evento.esPromocionado);
+  const eventosVigentes = eventos.filter((evento) => !eventoYaPaso(evento.fecha));
+  const eventosDestacados = eventosVigentes.filter((evento) => evento.esPromocionado);
 
   const destacadosParaMostrar =
     eventosDestacados.length > 0
       ? eventosDestacados.slice(0, 2)
-      : eventos.slice(0, 2);
+      : eventosVigentes.slice(0, 2);
 
   const recomendadosParaMostrar =
     eventosRecomendados.length > 0
-      ? eventosRecomendados.slice(0, 4)
-      : eventos.filter((evento) => !evento.esPromocionado).slice(0, 4);
+      ? eventosRecomendados.filter((evento) => !eventoYaPaso(evento.fecha)).slice(0, 4)
+      : eventosVigentes.filter((evento) => !evento.esPromocionado).slice(0, 4);
 
   if (loading) {
     return <LoadingScreen text="Cargando eventos..." />;

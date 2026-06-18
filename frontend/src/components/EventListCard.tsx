@@ -38,6 +38,8 @@ export default function EventListCard({
   onRemovePress,
   status,
 }: EventListCardProps) {
+  const esEventoPasado = status === "Este concierto ya pasó";
+
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <Image
@@ -71,8 +73,10 @@ export default function EventListCard({
         </View>
 
         {status && (
-          <View style={styles.statusPill}>
-            <Text style={styles.statusText}>{status}</Text>
+          <View style={[styles.statusPill, esEventoPasado && styles.statusPastPill]}>
+            <Text style={[styles.statusText, esEventoPasado && styles.statusPastText]}>
+              {status}
+            </Text>
           </View>
         )}
       </View>
@@ -199,9 +203,15 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
+  statusPastPill: {
+    backgroundColor: "#FFF1F2",
+  },
   statusText: {
     color: "#12A150",
     fontSize: 11,
     fontWeight: "900",
+  },
+  statusPastText: {
+    color: "#E53935",
   },
 });

@@ -40,6 +40,7 @@ import { Usuario } from "../types/Usuario";
 import { Asistencia } from "../types/Asistencia";
 import { Evento } from "../types/Evento";
 import { Publicacion } from "../types/Social";
+import { eventoYaPaso } from "../utils/eventHelpers";
 
 type Bloqueo = {
   _id: string;
@@ -243,6 +244,11 @@ export default function ProfileScreen() {
     return "Interesado";
   };
 
+  const obtenerEstadoEvento = (evento: Evento, estado?: string) => {
+    if (eventoYaPaso(evento.fecha)) return "Este concierto ya pasó";
+    return obtenerTextoEstado(estado);
+  };
+
   const sacarFavorito = async (favoritoId: string) => {
     try {
       const response = await fetch(`${API_URL}/api/favoritos/${favoritoId}`, {
@@ -407,7 +413,7 @@ export default function ProfileScreen() {
                   <EventListCard
                     key={asistencia._id}
                     evento={evento}
-                    status={obtenerTextoEstado(asistencia.estado)}
+                    status={obtenerEstadoEvento(evento, asistencia.estado)}
                     onPress={() => irAEvento(evento._id)}
                   />
                 );
@@ -432,7 +438,9 @@ export default function ProfileScreen() {
                   <EventListCard
                     key={favorito._id}
                     evento={evento}
-                    status="Guardado"
+                    status={
+                      eventoYaPaso(evento.fecha) ? "Este concierto ya pasó" : "Guardado"
+                    }
                     showRemove
                     onRemovePress={() => sacarFavorito(favorito._id)}
                     onPress={() => irAEvento(evento._id)}

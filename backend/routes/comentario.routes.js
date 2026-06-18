@@ -44,7 +44,9 @@ router.post("/", async (req, res) => {
     if (publicacion && String(publicacion.usuarioId) !== String(usuarioId)) {
       notificaciones.push({
         usuarioId: publicacion.usuarioId,
-        mensaje: `${nombreComentador} comentó tu publicación.`,
+        mensaje: comentarioPadreId
+          ? `${nombreComentador} respondió en tu publicación.`
+          : `${nombreComentador} comentó tu publicación.`,
         tipo: "comentario",
         entidadTipo: "publicacion",
         entidadId: publicacion._id,

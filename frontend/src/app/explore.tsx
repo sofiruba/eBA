@@ -22,6 +22,7 @@ import InterestChips from "../components/InterestChips";
 
 import { Evento } from "../types/Evento";
 import { getCached, setCached } from "../utils/cache";
+import { eventoYaPaso } from "../utils/eventHelpers";
 
 type Favorito = {
   _id: string;
@@ -268,7 +269,7 @@ export default function ExploreScreen() {
       const eventosCacheados = getCached<Evento[]>(cacheKey);
 
       if (eventosCacheados) {
-        setEventos(eventosCacheados);
+        setEventos(eventosCacheados.filter((evento) => !eventoYaPaso(evento.fecha)));
         setBuscoAlgo(true);
         setCategoriaActiva("");
         setLoading(false);
@@ -282,9 +283,13 @@ export default function ExploreScreen() {
         return;
       }
 
-      setEventos(data.eventos || []);
-      setCached(cacheKey, data.eventos || []);
-      (data.eventos || []).forEach((evento: Evento) => {
+      const eventosPromocionados = (data.eventos || []).filter(
+        (evento: Evento) => !eventoYaPaso(evento.fecha)
+      );
+
+      setEventos(eventosPromocionados);
+      setCached(cacheKey, eventosPromocionados);
+      eventosPromocionados.forEach((evento: Evento) => {
         if (evento._id) {
           setCached(`evento:${evento._id}`, evento);
         }
