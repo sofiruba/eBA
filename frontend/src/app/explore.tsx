@@ -185,7 +185,7 @@ export default function ExploreScreen() {
       const eventosCacheados = getCached<Evento[]>(cacheKey);
 
       if (eventosCacheados) {
-        setEventos(eventosCacheados);
+        setEventos(eventosCacheados.filter((evento) => !eventoYaPaso(evento.fecha))); // ← agregá el filtro
         setBuscoAlgo(false);
         setCategoriaActiva("");
         setTituloPersonalizado("");
@@ -200,8 +200,12 @@ export default function ExploreScreen() {
         return;
       }
 
-      setEventos(data.eventos || []);
-      setCached(cacheKey, data.eventos || []);
+      const eventosFiltrados = (data.eventos || []).filter( // ← y acá también
+        (evento: Evento) => !eventoYaPaso(evento.fecha)
+      );
+
+      setEventos(eventosFiltrados);
+      setCached(cacheKey, data.eventos || []); // en cache guardás todos igual
       (data.eventos || []).forEach((evento: Evento) => {
         if (evento._id) {
           setCached(`evento:${evento._id}`, evento);
@@ -302,7 +306,7 @@ export default function ExploreScreen() {
     }
   };
 
-  const buscarEventos = async (texto: string) => {
+const buscarEventos = async (texto: string) => {
   setTextoBusqueda(texto);
   setCategoriaActiva("");
 
@@ -337,14 +341,18 @@ export default function ExploreScreen() {
       return;
     }
 
-    setEventos(data.eventos || []);
+    const eventosFiltrados = (data.eventos || []).filter(
+      (evento: Evento) => !eventoYaPaso(evento.fecha)
+    );
+
+    setEventos(eventosFiltrados);
   } catch (error) {
     console.log("Error al buscar eventos:", error);
     setEventos([]);
   }
 };
 
-  const filtrarPorCategoria = async (categoria: string) => {
+const filtrarPorCategoria = async (categoria: string) => {
     try {
       const cacheKey = `eventos:categoria:${categoria}`;
       const eventosCacheados = getCached<Evento[]>(cacheKey);
@@ -356,7 +364,7 @@ export default function ExploreScreen() {
       setTituloPersonalizado("");
 
       if (eventosCacheados) {
-        setEventos(eventosCacheados);
+        setEventos(eventosCacheados.filter((evento) => !eventoYaPaso(evento.fecha)));
       }
 
       const response = await fetch(
@@ -370,7 +378,11 @@ export default function ExploreScreen() {
         return;
       }
 
-      setEventos(data.eventos || []);
+      const eventosFiltrados = (data.eventos || []).filter(
+        (evento: Evento) => !eventoYaPaso(evento.fecha)
+      );
+
+      setEventos(eventosFiltrados);
       setCached(cacheKey, data.eventos || []);
       (data.eventos || []).forEach((evento: Evento) => {
         if (evento._id) {

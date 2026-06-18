@@ -286,7 +286,7 @@ export default function HomeScreen() {
           onPress={irAExplorePromocionados}
         />
 
-        {eventos.length === 0 ? (
+        {eventosVigentes.length === 0 ? (
           <EmptyState
             title="No hay eventos cargados"
             text="Cuando se carguen eventos en la base de datos, van a aparecer acá."
