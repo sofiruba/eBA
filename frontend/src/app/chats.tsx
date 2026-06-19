@@ -9,7 +9,7 @@ import {
   Modal,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { MessageCircle, Search, SquarePen, X } from "lucide-react-native";
+import { MessageCircle, Search, SquarePen, Users, X } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { API_URL } from "../config/api";
@@ -23,6 +23,9 @@ import { Usuario } from "../types/Usuario";
 
 type Chat = {
   _id: string;
+  tipo?: "privado" | "evento";
+  eventoId?: { _id: string; nombre: string } | string | null;
+  nombre?: string;
   participantes: Usuario[];
   updatedAt?: string;
 };
@@ -97,12 +100,21 @@ export default function ChatsScreen() {
       }
 
       const chatsVisibles = (data.chats || []).filter((chat: Chat) => {
+        // Para chats grupales, siempre mostrar
+        if (chat.tipo === "evento") return true;
+
         const otro = obtenerOtroUsuarioDesdeId(chat, idUsuario);
         const otroId = obtenerIdUsuario(otro);
         return !otroId || !idsBloqueados.includes(otroId);
       });
 
-      setChats(chatsVisibles);
+      // Eliminar duplicados por _id
+      const chatsUnicos = chatsVisibles.filter(
+        (chat: Chat, index: number, self: Chat[]) =>
+          self.findIndex((c: Chat) => c._id === chat._id) === index
+      );
+
+      setChats(chatsUnicos);
 
       if (responseConexiones.ok) {
         const dataConexiones = await responseConexiones.json();
@@ -166,6 +178,22 @@ export default function ChatsScreen() {
     return obtenerOtroUsuarioConexionDesdeId(conexion, usuarioActualId);
   };
 
+  const obtenerNombreChat = (chat: Chat) => {
+    if (chat.tipo === "evento") {
+      if (chat.nombre) return chat.nombre;
+      if (chat.eventoId && typeof chat.eventoId === "object") {
+        return chat.eventoId.nombre;
+      }
+      return "Chat grupal";
+    }
+    const usuario = obtenerOtroUsuario(chat);
+    return usuario?.nombre || "Usuario";
+  };
+
+  const esChatGrupal = (chat: Chat) => {
+    return chat.tipo === "evento" || (chat.participantes?.length || 0) > 2;
+  };
+
   const abrirChatConConexion = async (conexion: Conexion) => {
     try {
       if (!usuarioActualId) return;
@@ -225,16 +253,24 @@ export default function ChatsScreen() {
   };
 
   const chatsFiltrados = chats.filter((chat) => {
-    const usuario = obtenerOtroUsuario(chat);
     const texto = busqueda.toLowerCase().trim();
 
     if (!texto) return true;
 
-    return (
-      usuario?.nombre?.toLowerCase().includes(texto) ||
-      usuario?.nombreUsuario?.toLowerCase().includes(texto) ||
-      usuario?.email?.toLowerCase().includes(texto)
-    );
+    const nombre = obtenerNombreChat(chat).toLowerCase();
+
+    if (nombre.includes(texto)) return true;
+
+    // Para chats privados, buscar también por nombreUsuario y email
+    if (!esChatGrupal(chat)) {
+      const usuario = obtenerOtroUsuario(chat);
+      return (
+        usuario?.nombreUsuario?.toLowerCase().includes(texto) ||
+        usuario?.email?.toLowerCase().includes(texto)
+      );
+    }
+
+    return false;
   });
 
   if (loading) {
@@ -294,7 +330,9 @@ export default function ChatsScreen() {
           />
         ) : (
           chatsFiltrados.map((chat) => {
-            const usuario = obtenerOtroUsuario(chat);
+            const grupal = esChatGrupal(chat);
+            const usuario = grupal ? undefined : obtenerOtroUsuario(chat);
+            const nombre = obtenerNombreChat(chat);
 
             return (
               <TouchableOpacity
@@ -304,17 +342,23 @@ export default function ChatsScreen() {
                 onPress={() => router.push(`/chat/${chat._id}` as any)}
               >
                 <View style={styles.avatarBox}>
-                  <ProfileAvatarLink usuario={usuario} size={52} />
+                  {grupal ? (
+                    <View style={styles.groupAvatar}>
+                      <Users size={24} color="#FFFFFF" />
+                    </View>
+                  ) : (
+                    <ProfileAvatarLink usuario={usuario} size={52} />
+                  )}
                   <View style={styles.onlineDot} />
                 </View>
 
                 <View style={styles.chatInfo}>
-                  <Text style={styles.chatName}>
-                    {usuario?.nombre || "Usuario"}
-                  </Text>
+                  <Text style={styles.chatName}>{nombre}</Text>
 
                   <Text style={styles.chatPreview}>
-                    Tocá para seguir la charla
+                    {grupal
+                      ? `${chat.participantes?.length || 0} participantes`
+                      : "Tocá para seguir la charla"}
                   </Text>
                 </View>
 
@@ -458,6 +502,14 @@ const styles = StyleSheet.create({
   avatarBox: {
     position: "relative",
     marginRight: 12,
+  },
+  groupAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#6D28E8",
+    alignItems: "center",
+    justifyContent: "center",
   },
   onlineDot: {
     position: "absolute",

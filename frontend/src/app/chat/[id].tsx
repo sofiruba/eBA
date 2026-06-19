@@ -31,6 +31,9 @@ import { Usuario } from "../../types/Usuario";
 
 type Chat = {
   _id: string;
+  nombre?: string;
+  tipo?: "privado" | "evento";
+  eventoId?: { _id: string; nombre: string } | string | null;
   participantes: Usuario[];
 };
 
@@ -379,6 +382,15 @@ export default function ChatDetailScreen() {
   }
 
   const otroUsuario = obtenerOtroUsuario();
+  const esChatGrupal = chat?.tipo === "evento" || (chat?.participantes.length || 0) > 2;
+  const tituloChat =
+    chat?.nombre ||
+    (chat?.eventoId && typeof chat.eventoId === "object" ? chat.eventoId.nombre : null) ||
+    otroUsuario?.nombre ||
+    "Chat";
+  const subtituloChat = esChatGrupal
+    ? `${chat?.participantes.length || 0} participantes`
+    : "Conexión activa · respondé cuando quieras";
 
   return (
     <KeyboardAvoidingView
@@ -391,13 +403,13 @@ export default function ChatDetailScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerAvatarBox}>
-          <ProfileAvatarLink usuario={otroUsuario} size={44} />
+          <ProfileAvatarLink usuario={esChatGrupal ? null : otroUsuario} size={44} />
           <View style={styles.headerOnlineDot} />
         </View>
 
         <View style={styles.headerText}>
-          <Text style={styles.title}>{otroUsuario?.nombre || "Chat"}</Text>
-          <Text style={styles.subtitle}>Conexión activa · respondé cuando quieras</Text>
+          <Text style={styles.title}>{tituloChat}</Text>
+          <Text style={styles.subtitle}>{subtituloChat}</Text>
         </View>
 
         <View style={styles.secureIcon}>
@@ -416,6 +428,7 @@ export default function ChatDetailScreen() {
           const emisorId = obtenerUsuarioId(mensaje.usuarioEmisorId);
           const esMio = emisorId === usuarioActualId;
           const mensajeRespondido = obtenerMensajeRespondido(mensaje);
+          const nombreEmisor = obtenerNombreUsuarioMensaje(mensaje.usuarioEmisorId);
           const mensajeEstaEliminado = !!mensaje.eliminado;
           const mensajeFueEditado =
             !!mensaje.updatedAt &&
@@ -479,6 +492,10 @@ export default function ChatDetailScreen() {
                   </View>
                 ) : (
                   <>
+                    {esChatGrupal && !esMio && !mensajeEstaEliminado && (
+                      <Text style={styles.messageSenderName}>{nombreEmisor}</Text>
+                    )}
+
                     {mensajeRespondido && (
                       <TouchableOpacity
                         style={[
@@ -732,6 +749,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#332047",
     lineHeight: 21,
+  },
+  messageSenderName: {
+    color: "#6D28E8",
+    fontSize: 12,
+    fontWeight: "900",
+    marginBottom: 4,
   },
   messageTextMine: {
     color: "#FFFFFF",

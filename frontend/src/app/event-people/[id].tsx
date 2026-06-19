@@ -560,6 +560,37 @@ export default function EventPeopleScreen() {
     }
   };
 
+ const abrirChatGrupalEvento = async () => {
+  try {
+    if (!id || !usuarioActualId) {
+      alert("No se pudo identificar usuario o evento.");
+      return;
+    }
+
+    const response = await fetch(`${API_URL}/api/chats/evento/${String(id)}/unirse`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        usuarioId: usuarioActualId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.error || data.detalle || "No se pudo abrir el chat grupal.");
+      return;
+    }
+
+    router.push(`/chat/${data.chat._id}` as any);
+  } catch (error) {
+    console.log("Error abriendo chat grupal:", error);
+    alert("No se pudo conectar con el servidor.");
+  }
+};
+
   const enviarSolicitudConexion = async (usuarioReceptorId?: string | null) => {
     try {
       const usuarioGuardado = await AsyncStorage.getItem("usuario");
@@ -777,7 +808,7 @@ export default function EventPeopleScreen() {
           <TouchableOpacity
             style={styles.quickActionCard}
             activeOpacity={0.85}
-            onPress={() => router.push("/chats" as any)}
+            onPress={abrirChatGrupalEvento}  
           >
             <MessageCircle size={20} color="#6D28E8" />
             <Text style={styles.quickActionNumber}>Chat</Text>
@@ -1009,16 +1040,16 @@ export default function EventPeopleScreen() {
             <Text style={styles.chatTitle}>Coordiná con quienes van</Text>
 
             <Text style={styles.infoText}>
-              Usá tus conversaciones para organizar punto de encuentro,
-              horarios y planes antes del evento.
+              Este grupo es del evento {evento.nombre}. Al unirte vas a poder
+              ver participantes y escribir como en un grupo.
             </Text>
 
             <TouchableOpacity
               style={styles.openChatButton}
               activeOpacity={0.85}
-              onPress={() => router.push("/chats" as any)}
+              onPress={abrirChatGrupalEvento}
             >
-              <Text style={styles.openChatButtonText}>Ir a chats</Text>
+              <Text style={styles.openChatButtonText}>Unirme al grupo</Text>
             </TouchableOpacity>
 
             <Text style={styles.infoLabel}>Descripción</Text>

@@ -27,11 +27,52 @@ export default function RegisterScreen() {
   }
 
   const [nombre, setNombre] = useState("");
+  const [nombreUsuario, setNombreUsuario] = useState("");
+  const [estadoNombreUsuario, setEstadoNombreUsuario] = useState<
+    "idle" | "checking" | "available" | "taken" | "invalid"
+  >("idle");
+  const [sugerenciasUsuario, setSugerenciasUsuario] = useState<string[]>([]);
   const [email, setEmail] = useState("");
   const [contrasenia, setContrasenia] = useState("");
   const [edad, setEdad] = useState("");
   const [loading, setLoading] = useState(false);
   const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
+
+  const verificarNombreUsuario = async (valor = nombreUsuario) => {
+    const nombreUsuarioLimpio = valor.trim();
+
+    if (!nombreUsuarioLimpio) {
+      setEstadoNombreUsuario("idle");
+      setSugerenciasUsuario([]);
+      return false;
+    }
+
+    try {
+      setEstadoNombreUsuario("checking");
+      const response = await fetch(
+        `${API_URL}/api/usuarios/nombre-usuario/disponible?nombreUsuario=${encodeURIComponent(
+          nombreUsuarioLimpio
+        )}`
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        setEstadoNombreUsuario("idle");
+        setSugerenciasUsuario(data.sugerencias || []);
+        return null;
+      }
+
+      setNombreUsuario(data.nombreUsuario || nombreUsuarioLimpio);
+      setEstadoNombreUsuario(data.disponible ? "available" : "taken");
+      setSugerenciasUsuario(data.sugerencias || []);
+
+      return !!data.disponible;
+    } catch (error) {
+      setEstadoNombreUsuario("idle");
+      setSugerenciasUsuario([]);
+      return null;
+    }
+  };
 
   const handleRegister = async () => {
     if (intereses.length === 0) {
@@ -41,6 +82,18 @@ export default function RegisterScreen() {
 
     if (!nombre.trim()) {
       alert("Ingresá tu nombre.");
+      return;
+    }
+
+    if (!nombreUsuario.trim()) {
+      alert("Ingresá un nombre de usuario.");
+      return;
+    }
+
+    const nombreUsuarioDisponible = await verificarNombreUsuario();
+
+    if (nombreUsuarioDisponible === false) {
+      alert("Ese nombre de usuario no está disponible. Elegí una sugerencia.");
       return;
     }
 
@@ -80,6 +133,7 @@ export default function RegisterScreen() {
 
     const nuevoUsuario = {
       nombre: nombre.trim(),
+      nombreUsuario: nombreUsuario.trim(),
       email: email.trim().toLowerCase(),
       contrasenia,
       edad: edadNumerica,
@@ -105,6 +159,11 @@ export default function RegisterScreen() {
       console.log("Respuesta del backend:", data);
 
       if (!response.ok) {
+        if (data.sugerencias?.length) {
+          setEstadoNombreUsuario("taken");
+          setSugerenciasUsuario(data.sugerencias);
+        }
+
         alert(data.message || data.error || "Error al registrar usuario.");
         return;
       }
@@ -158,6 +217,63 @@ export default function RegisterScreen() {
           >
             <Text style={styles.editInterests}>Editar intereses</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Nombre de usuario</Text>
+          <TextInput
+            placeholder="sofi.ba"
+            placeholderTextColor="#A8A5B3"
+            style={[
+              styles.input,
+              estadoNombreUsuario === "available" && styles.inputAvailable,
+              (estadoNombreUsuario === "taken" ||
+                estadoNombreUsuario === "invalid") &&
+                styles.inputError,
+            ]}
+            value={nombreUsuario}
+            onChangeText={(texto) => {
+              setNombreUsuario(texto);
+              setEstadoNombreUsuario("idle");
+              setSugerenciasUsuario([]);
+            }}
+            onBlur={() => verificarNombreUsuario()}
+            autoCapitalize="none"
+          />
+
+          {estadoNombreUsuario === "checking" && (
+            <Text style={styles.usernameHint}>Verificando usuario...</Text>
+          )}
+          {estadoNombreUsuario === "available" && (
+            <Text style={styles.usernameOk}>Usuario disponible</Text>
+          )}
+          {(estadoNombreUsuario === "taken" || estadoNombreUsuario === "invalid") && (
+            <View style={styles.suggestionsBox}>
+              <Text style={styles.usernameError}>
+                {estadoNombreUsuario === "taken"
+                  ? "Ese usuario ya está en uso."
+                  : "Escribí al menos una palabra para tu usuario."}
+              </Text>
+              {sugerenciasUsuario.length > 0 && (
+                <View style={styles.suggestionsRow}>
+                  {sugerenciasUsuario.map((sugerencia) => (
+                    <TouchableOpacity
+                      key={sugerencia}
+                      style={styles.suggestionChip}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        setNombreUsuario(sugerencia);
+                        setEstadoNombreUsuario("available");
+                        setSugerenciasUsuario([]);
+                      }}
+                    >
+                      <Text style={styles.suggestionText}>@{sugerencia}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         <View style={styles.field}>
@@ -326,6 +442,49 @@ const styles = StyleSheet.create({
     color: "#332047",
     backgroundColor: "#FAFAFF",
     outlineStyle: "none" as any,
+  },
+  inputAvailable: {
+    borderColor: "#12A150",
+  },
+  inputError: {
+    borderColor: "#E53935",
+  },
+  usernameHint: {
+    marginTop: 7,
+    color: "#8D8A99",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  usernameOk: {
+    marginTop: 7,
+    color: "#12A150",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  suggestionsBox: {
+    marginTop: 8,
+  },
+  usernameError: {
+    color: "#E53935",
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  suggestionsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  suggestionChip: {
+    backgroundColor: "#F1ECFF",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  suggestionText: {
+    color: "#7528F0",
+    fontSize: 12,
+    fontWeight: "900",
   },
   passwordBox: {
     width: "100%",
