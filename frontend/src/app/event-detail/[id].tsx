@@ -30,7 +30,7 @@ import {
   obtenerUbicacion,
   eventoYaPaso,
 } from "../../utils/eventHelpers";
-import { getCached, setCached } from "../../utils/cache";
+import { getCached, invalidateEventCaches, setCached } from "../../utils/cache";
 
 export default function EventDetail() {
   const { id } = useLocalSearchParams();
@@ -142,6 +142,7 @@ export default function EventDetail() {
         }
 
         setFavoritoId(null);
+        invalidateEventCaches(eventData._id, usuarioId);
         return;
       }
 
@@ -164,6 +165,7 @@ export default function EventDetail() {
       }
 
       setFavoritoId(data.favorito?._id || "guardado");
+      invalidateEventCaches(eventData._id, usuarioId);
     } catch (error) {
       console.log("Error actualizando favorito:", error);
       alert("No se pudo conectar con el servidor.");
@@ -222,6 +224,7 @@ export default function EventDetail() {
         return;
       }
 
+      invalidateEventCaches(eventData._id, usuarioId);
       router.replace(`/event-people/${eventData._id}?returnToHome=1` as any);
     } catch (error) {
       console.log("Error al registrar asistencia:", error);

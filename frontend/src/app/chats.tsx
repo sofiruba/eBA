@@ -77,6 +77,47 @@ export default function ChatsScreen() {
 
       setUsuarioActualId(idUsuario);
 
+      try {
+        const responseResumen = await fetch(
+          `${API_URL}/api/chats/resumen/${idUsuario}`
+        );
+        const dataResumen = await responseResumen.json();
+
+        if (responseResumen.ok) {
+          const idsBloqueados = (dataResumen.bloqueos || [])
+            .map((bloqueo: Bloqueo) => obtenerIdUsuario(bloqueo.bloqueadoId))
+            .filter(Boolean) as string[];
+
+          const chatsVisibles = (dataResumen.chats || []).filter((chat: Chat) => {
+            if (chat.tipo === "evento") return true;
+
+            const otro = obtenerOtroUsuarioDesdeId(chat, idUsuario);
+            const otroId = obtenerIdUsuario(otro);
+            return !otroId || !idsBloqueados.includes(otroId);
+          });
+
+          const chatsUnicos = chatsVisibles.filter(
+            (chat: Chat, index: number, self: Chat[]) =>
+              self.findIndex((c: Chat) => c._id === chat._id) === index
+          );
+
+          const conexionesVisibles = (Array.isArray(dataResumen.conexiones)
+            ? dataResumen.conexiones
+            : []
+          ).filter((conexion: Conexion) => {
+            const otro = obtenerOtroUsuarioConexionDesdeId(conexion, idUsuario);
+            const otroId = obtenerIdUsuario(otro);
+            return !otroId || !idsBloqueados.includes(otroId);
+          });
+
+          setChats(chatsUnicos);
+          setConexiones(conexionesVisibles);
+          return;
+        }
+      } catch (errorResumen) {
+        console.log("Error usando resumen de chats:", errorResumen);
+      }
+
       const [response, responseConexiones, responseBloqueos] = await Promise.all([
         fetch(`${API_URL}/api/chats/usuario/${idUsuario}`),
         fetch(`${API_URL}/api/conexiones/usuario/${idUsuario}`),
@@ -143,7 +184,7 @@ export default function ChatsScreen() {
 
   useAutoRefresh(
     useCallback(() => cargarChats(true), []),
-    10000,
+    30000,
     !loading
   );
 

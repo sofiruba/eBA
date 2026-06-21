@@ -197,7 +197,24 @@ app.use(express.json({ limit: "30mb" }));
 app.use(express.urlencoded({ limit: "30mb", extended: true }));
 
 app.use((req, res, next) => {
-  console.log("Request recibida:", req.method, req.url);
+  const inicio = Date.now();
+
+  res.on("finish", () => {
+    const duracion = Date.now() - inicio;
+    const limiteLento = Number(process.env.SLOW_REQUEST_MS || 1500);
+
+    if (duracion >= limiteLento) {
+      console.log(
+        `Request lenta: ${req.method} ${req.originalUrl} ${res.statusCode} ${duracion}ms`
+      );
+      return;
+    }
+
+    if (process.env.DEBUG_HTTP === "true") {
+      console.log("Request recibida:", req.method, req.originalUrl, res.statusCode);
+    }
+  });
+
   next();
 });
 
@@ -224,7 +241,12 @@ const conectarMongo = async () => {
       console.log("Intentando conectar a MongoDB Atlas...");
 
       mongoPromise = mongoose.connect(process.env.MONGO_URI, {
-        serverSelectionTimeoutMS: 15000,
+        serverSelectionTimeoutMS: 8000,
+        connectTimeoutMS: 8000,
+        socketTimeoutMS: 12000,
+        maxPoolSize: 10,
+        autoIndex: false,
+        autoCreate: false,
         bufferCommands: false,
       });
     }

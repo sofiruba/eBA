@@ -18,6 +18,9 @@ const favoritoSchema = new mongoose.Schema(
   }
 );
 
+favoritoSchema.index({ usuarioId: 1, updatedAt: -1 });
+favoritoSchema.index({ eventoId: 1 });
+
 module.exports = mongoose.model(
   "Favorito",
   favoritoSchema,

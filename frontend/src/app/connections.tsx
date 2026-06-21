@@ -26,6 +26,7 @@ import EmptyState from "../components/EmptyState";
 import ProfileAvatarLink from "../components/ProfileAvatarLink";
 import SectionHeader from "../components/SectionHeader";
 import useAutoRefresh from "../hooks/useAutoRefresh";
+import { invalidateSocialCaches } from "../utils/cache";
 
 import { Usuario } from "../types/Usuario";
 
@@ -88,6 +89,57 @@ export default function ConnectionsScreen() {
       }
 
       setUsuarioActualId(idUsuario);
+
+      try {
+        const responseResumen = await fetch(
+          `${API_URL}/api/conexiones/resumen/${idUsuario}`
+        );
+        const dataResumen = await responseResumen.json();
+
+        if (responseResumen.ok) {
+          const idsBloqueados = (dataResumen.bloqueos || [])
+            .map((bloqueo: Bloqueo) => obtenerIdUsuario(bloqueo.bloqueadoId))
+            .filter(Boolean) as string[];
+          const conexionesObtenidas = Array.isArray(dataResumen.conexiones)
+            ? dataResumen.conexiones
+            : [];
+          const solicitudesFiltradas = (dataResumen.solicitudes || []).filter(
+            (solicitud: Solicitud) => {
+              const solicitanteId = obtenerIdUsuario(solicitud.usuariosolicitante);
+              const receptorId = obtenerIdUsuario(solicitud.usuarioreceptor);
+              const otroId =
+                solicitanteId === idUsuario ? receptorId : solicitanteId;
+
+              return !otroId || !idsBloqueados.includes(otroId);
+            }
+          );
+
+          setConexiones(
+            conexionesObtenidas.filter((conexion: Conexion) => {
+              const otroId = obtenerIdUsuario(
+                obtenerOtroUsuarioDesdeId(conexion, idUsuario)
+              );
+              return !otroId || !idsBloqueados.includes(otroId);
+            })
+          );
+          setSolicitudesRecibidas(
+            solicitudesFiltradas.filter(
+              (solicitud: Solicitud) =>
+                obtenerIdUsuario(solicitud.usuarioreceptor) === idUsuario
+            )
+          );
+          setSolicitudesEnviadas(
+            solicitudesFiltradas.filter(
+              (solicitud: Solicitud) =>
+                obtenerIdUsuario(solicitud.usuariosolicitante) === idUsuario
+            )
+          );
+          setSugerencias(dataResumen.sugerencias || []);
+          return;
+        }
+      } catch (errorResumen) {
+        console.log("Error usando resumen de conexiones:", errorResumen);
+      }
 
       const [responseConexiones, responseSugerencias, responseBloqueos] =
         await Promise.all([
@@ -180,7 +232,7 @@ export default function ConnectionsScreen() {
 
   useAutoRefresh(
     useCallback(() => cargarDatos(true), []),
-    15000,
+    60000,
     !loading
   );
 
@@ -200,6 +252,7 @@ export default function ConnectionsScreen() {
         return;
       }
 
+      invalidateSocialCaches(usuarioActualId);
       await cargarDatos();
     } catch (error) {
       console.log("Error al aceptar solicitud:", error);
@@ -223,6 +276,7 @@ export default function ConnectionsScreen() {
         return;
       }
 
+      invalidateSocialCaches(usuarioActualId);
       await cargarDatos();
     } catch (error) {
       console.log("Error al rechazar solicitud:", error);
@@ -252,6 +306,7 @@ export default function ConnectionsScreen() {
         return;
       }
 
+      invalidateSocialCaches(usuarioActualId);
       await cargarDatos(true);
     } catch (error) {
       console.log("Error enviando solicitud sugerida:", error);
@@ -275,6 +330,7 @@ export default function ConnectionsScreen() {
         return;
       }
 
+      invalidateSocialCaches(usuarioActualId);
       await cargarDatos(true);
     } catch (error) {
       console.log("Error cancelando solicitud:", error);
@@ -360,6 +416,7 @@ export default function ConnectionsScreen() {
         return;
       }
 
+      invalidateSocialCaches(usuarioActualId);
       await cargarDatos(true);
     } catch (error) {
       console.log("Error bloqueando conexión:", error);

@@ -41,4 +41,6 @@ const MensajeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+MensajeSchema.index({ chatId: 1, fechaEnvio: 1 });
+
 module.exports = mongoose.model("Mensaje", MensajeSchema);

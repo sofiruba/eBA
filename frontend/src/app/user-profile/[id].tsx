@@ -18,6 +18,7 @@ import { API_URL } from "../../config/api";
 import LoadingScreen from "../../components/LoadingScreen";
 import UserAvatar from "../../components/UserAvatar";
 import { Usuario } from "../../types/Usuario";
+import { invalidateSocialCaches } from "../../utils/cache";
 
 type Conexion = {
   _id: string;
@@ -151,6 +152,7 @@ export default function UserProfileScreen() {
       }
 
       setSolicitudPendiente(true);
+      invalidateSocialCaches(usuarioActualId);
       alert("Solicitud enviada correctamente.");
     } catch (error) {
       console.log("Error enviando solicitud:", error);
@@ -229,6 +231,7 @@ export default function UserProfileScreen() {
       }
 
       alert("Usuario bloqueado correctamente.");
+      invalidateSocialCaches(usuarioActualId);
       router.replace("/connections" as any);
     } catch (error) {
       console.log("Error bloqueando usuario:", error);

@@ -40,7 +40,7 @@ import {
   obtenerImagen,
   formatearFechaLarga,
 } from "../../utils/eventHelpers";
-import { getCached, setCached } from "../../utils/cache";
+import { getCached, invalidateSocialCaches, setCached } from "../../utils/cache";
 
 type Asistencia = {
   _id: string;
@@ -163,6 +163,62 @@ export default function EventPeopleScreen() {
         if (solicitudesPendientesCacheadas) {
           setSolicitudesPendientesIds(solicitudesPendientesCacheadas);
         }
+      }
+
+      try {
+        const responseResumen = await fetch(
+          `${API_URL}/api/eventos/resumen/${eventoId}/usuario/${idUsuario}`
+        );
+        const dataResumen = await responseResumen.json();
+
+        if (responseResumen.ok) {
+          const eventoObtenido = dataResumen.evento;
+          const asistenciasObtenidas = dataResumen.asistencias || [];
+          const conexionesObtenidas = dataResumen.conexiones || [];
+          const idsPendientes = (dataResumen.solicitudes || []).map(
+            (solicitud: SolicitudConexion) => {
+              const solicitanteId = obtenerUsuarioId(solicitud.usuariosolicitante);
+              const receptorId = obtenerUsuarioId(solicitud.usuarioreceptor);
+
+              if (solicitanteId === idUsuario) {
+                return receptorId;
+              }
+
+              return solicitanteId;
+            }
+          );
+          const idsPendientesFiltrados = idsPendientes.filter(Boolean);
+          const idsBloqueados = (dataResumen.bloqueos || [])
+            .map((bloqueo: { bloqueadoId: Usuario | string }) =>
+              obtenerUsuarioId(bloqueo.bloqueadoId)
+            )
+            .filter(Boolean) as string[];
+
+          setEvento(eventoObtenido);
+          setAsistencias(asistenciasObtenidas);
+          setConexiones(conexionesObtenidas);
+          setConexionesIds(obtenerIdsConexiones(conexionesObtenidas, idUsuario));
+          setSolicitudesPendientesIds(idsPendientesFiltrados);
+          setBloqueadosIds(idsBloqueados);
+
+          setCached(`evento:${eventoId}`, eventoObtenido);
+          setCached(`asistencias:evento:${eventoId}`, asistenciasObtenidas);
+          setCached(`conexiones:usuario:${idUsuario}`, conexionesObtenidas);
+          setCached(
+            `solicitudes-pendientes:usuario:${idUsuario}`,
+            idsPendientesFiltrados
+          );
+
+          if (!silencioso) {
+            setLoading(false);
+            setLoadingPersonas(false);
+          }
+
+          cargarPublicaciones(eventoId, silencioso);
+          return;
+        }
+      } catch (errorResumen) {
+        console.log("Error usando resumen de evento:", errorResumen);
       }
 
       const responseEventoPromise = fetch(`${API_URL}/api/eventos/${eventoId}`);
@@ -331,8 +387,9 @@ export default function EventPeopleScreen() {
         setLoadingPublicaciones(!publicacionesCacheadas);
       }
 
+      const query = usuarioActualId ? `?usuarioId=${usuarioActualId}` : "";
       const response = await fetch(
-        `${API_URL}/api/publicaciones/evento/${eventoId}`
+        `${API_URL}/api/publicaciones/evento/${eventoId}${query}`
       );
 
       const data = await response.json();
@@ -361,6 +418,60 @@ export default function EventPeopleScreen() {
   const refrescarPersonasYConexiones = async () => {
     try {
       if (!id || !usuarioActualId) return;
+
+      try {
+        const responseResumen = await fetch(
+          `${API_URL}/api/eventos/resumen/${String(id)}/usuario/${usuarioActualId}`
+        );
+        const dataResumen = await responseResumen.json();
+
+        if (responseResumen.ok) {
+          const asistenciasObtenidas = dataResumen.asistencias || [];
+          const conexionesObtenidas = dataResumen.conexiones || [];
+          const idsPendientes = (dataResumen.solicitudes || []).map(
+            (solicitud: SolicitudConexion) => {
+              const solicitanteId = obtenerUsuarioId(solicitud.usuariosolicitante);
+              const receptorId = obtenerUsuarioId(solicitud.usuarioreceptor);
+
+              if (solicitanteId === usuarioActualId) {
+                return receptorId;
+              }
+
+              return solicitanteId;
+            }
+          );
+          const idsPendientesFiltrados = idsPendientes.filter(Boolean);
+          const idsBloqueados = (dataResumen.bloqueos || [])
+            .map((bloqueo: { bloqueadoId: Usuario | string }) =>
+              obtenerUsuarioId(bloqueo.bloqueadoId)
+            )
+            .filter(Boolean) as string[];
+
+          if (dataResumen.evento) {
+            setEvento(dataResumen.evento);
+            setCached(`evento:${String(id)}`, dataResumen.evento);
+          }
+
+          setAsistencias(asistenciasObtenidas);
+          setCached(`asistencias:evento:${String(id)}`, asistenciasObtenidas);
+
+          setConexiones(conexionesObtenidas);
+          setCached(`conexiones:usuario:${usuarioActualId}`, conexionesObtenidas);
+          setConexionesIds(
+            obtenerIdsConexiones(conexionesObtenidas, usuarioActualId)
+          );
+
+          setSolicitudesPendientesIds(idsPendientesFiltrados);
+          setCached(
+            `solicitudes-pendientes:usuario:${usuarioActualId}`,
+            idsPendientesFiltrados
+          );
+          setBloqueadosIds(idsBloqueados);
+          return;
+        }
+      } catch (errorResumen) {
+        console.log("Error refrescando resumen de evento:", errorResumen);
+      }
 
       const [
         responseAsistencias,
@@ -419,7 +530,7 @@ export default function EventPeopleScreen() {
 
   useAutoRefresh(
     useCallback(() => refrescarPersonasYConexiones(), [id, usuarioActualId]),
-    20000,
+    60000,
     !loading
   );
 
@@ -639,6 +750,7 @@ export default function EventPeopleScreen() {
         return [...prev, usuarioReceptorId];
       });
 
+      invalidateSocialCaches(usuarioSolicitanteId);
       alert("Solicitud enviada correctamente.");
     } catch (error) {
       console.log("Error al enviar solicitud:", error);
@@ -859,6 +971,23 @@ export default function EventPeopleScreen() {
 
         {tabActiva === "personas" && (
           <View style={styles.peopleList}>
+            <View style={styles.peopleSectionHeader}>
+              <View>
+                <Text style={styles.peopleSectionTitle}>Personas que van</Text>
+                <Text style={styles.peopleSectionSubtitle}>
+                  {personasFiltradas.length} perfiles para conocer antes del evento
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.groupChatShortcut}
+                activeOpacity={0.85}
+                onPress={abrirChatGrupalEvento}
+              >
+                <MessageCircle size={18} color="#6D28E8" />
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.peopleSearchBox}>
               <Search size={18} color="#8B35E8" />
               <TextInput
@@ -894,10 +1023,11 @@ export default function EventPeopleScreen() {
                 const solicitudPendiente = tieneSolicitudPendiente(receptorId);
                 const conexion = obtenerConexionConUsuario(receptorId);
                 const intereses = usuario?.intereses?.slice(0, 3) || [];
-
                 return (
                   <View key={asistencia._id} style={styles.personCard}>
-                    <ProfileAvatarLink usuario={usuario} size={54} />
+                    <View style={styles.personAvatarWrap}>
+                      <ProfileAvatarLink usuario={usuario} size={48} />
+                    </View>
 
                     <TouchableOpacity
                       style={styles.personInfo}
@@ -909,13 +1039,12 @@ export default function EventPeopleScreen() {
                       </Text>
 
                       <Text style={styles.personSubtitle}>
-                        @{usuario?.nombreUsuario || "usuario"} ·{" "}
-                        {usuario?.ubicacionAproximada || "Ubicación no cargada"}
+                        @{usuario?.nombreUsuario || "usuario"}
                       </Text>
 
                       {intereses.length > 0 && (
                         <View style={styles.personChips}>
-                          {intereses.map((interes) => (
+                          {intereses.slice(0, 2).map((interes) => (
                             <View key={interes} style={styles.personChip}>
                               <Text style={styles.personChipText}>{interes}</Text>
                             </View>
@@ -923,40 +1052,32 @@ export default function EventPeopleScreen() {
                         </View>
                       )}
 
-                      <Text
-                        style={[
-                          styles.statusText,
-                          yaEsAmigo && styles.friendStatusText,
-                          solicitudPendiente && styles.pendingStatusText,
-                        ]}
-                      >
-                        {yaEsAmigo
-                          ? "Ya son conexión, pueden coordinar"
-                          : solicitudPendiente
-                            ? "Solicitud pendiente"
-                            : "También quiere ir a este evento"}
-                      </Text>
+                      {(yaEsAmigo || solicitudPendiente) && (
+                        <Text style={styles.statusText}>
+                          {yaEsAmigo ? "Ya son conexión" : "Solicitud pendiente"}
+                        </Text>
+                      )}
                     </TouchableOpacity>
 
                     {yaEsAmigo ? (
                       <TouchableOpacity
-                        style={styles.friendButton}
+                        style={[styles.personActionButton, styles.friendButton]}
                         activeOpacity={0.85}
                         onPress={() => conexion && abrirChat(conexion, receptorId)}
                       >
-                        <MessageCircle size={20} color="#12A150" />
+                        <MessageCircle size={17} color="#12A150" />
                       </TouchableOpacity>
                     ) : solicitudPendiente ? (
-                      <View style={styles.pendingButton}>
-                        <Clock3 size={21} color="#8B35E8" />
+                      <View style={[styles.personActionButton, styles.pendingButton]}>
+                        <Clock3 size={17} color="#8B35E8" />
                       </View>
                     ) : (
                       <TouchableOpacity
-                        style={styles.connectButton}
+                        style={[styles.personActionButton, styles.connectButton]}
                         activeOpacity={0.85}
                         onPress={() => enviarSolicitudConexion(receptorId)}
                       >
-                        <UserPlus size={20} color="#FFFFFF" />
+                        <UserPlus size={17} color="#FFFFFF" />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1232,6 +1353,33 @@ const styles = StyleSheet.create({
   peopleList: {
     paddingBottom: 20,
   },
+  peopleSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  peopleSectionTitle: {
+    fontSize: 19,
+    fontWeight: "900",
+    color: "#2D2934",
+  },
+  peopleSectionSubtitle: {
+    marginTop: 3,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#8D8A99",
+  },
+  groupChatShortcut: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: "#F1ECFF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E1D6FA",
+  },
   peopleLoadingCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 18,
@@ -1246,8 +1394,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   peopleSearchBox: {
-    height: 48,
-    borderRadius: 24,
+    height: 44,
+    borderRadius: 16,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E0D9F4",
@@ -1264,31 +1412,41 @@ const styles = StyleSheet.create({
     outlineStyle: "none" as any,
   },
   personCard: {
-    minHeight: 94,
-    borderRadius: 26,
+    minHeight: 82,
+    borderRadius: 18,
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
-    alignItems: "flex-start",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 18,
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.04)",
+    borderColor: "#ECE7F5",
+    shadowColor: "#3A245A",
+    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 1,
+  },
+  personAvatarWrap: {
+    alignSelf: "flex-start",
   },
   personInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 4,
+    paddingRight: 6,
   },
   personName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "900",
     color: "#2D2934",
-    marginBottom: 3,
+    marginBottom: 2,
   },
   personSubtitle: {
     fontSize: 12,
     color: "#8D8A99",
-    marginBottom: 3,
+    fontWeight: "700",
+    marginBottom: 7,
   },
   personChips: {
     flexDirection: "row",
@@ -1297,9 +1455,9 @@ const styles = StyleSheet.create({
   },
   personChip: {
     backgroundColor: "#F1ECFF",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     marginRight: 6,
     marginBottom: 4,
   },
@@ -1309,39 +1467,32 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   statusText: {
-    fontSize: 12,
-    color: "#7528F0",
+    fontSize: 11,
+    color: "#6F6D7A",
     fontWeight: "800",
+    lineHeight: 15,
   },
-  friendStatusText: {
-    color: "#12A150",
-  },
-  pendingStatusText: {
-    color: "#8B35E8",
+  personActionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
   },
   connectButton: {
-    width: 54,
-    height: 38,
-    borderRadius: 20,
-    backgroundColor: "#B484F2",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "#6D28E8",
   },
   friendButton: {
-    width: 54,
-    height: 38,
-    borderRadius: 20,
     backgroundColor: "#ECFDF3",
-    alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#C9F3DA",
   },
   pendingButton: {
-    width: 54,
-    height: 38,
-    borderRadius: 20,
     backgroundColor: "#F1ECFF",
-    alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E1D6FA",
   },
 
   publicacionesContainer: {

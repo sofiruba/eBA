@@ -5,7 +5,71 @@ const SolicitudConexion = require("../models/SolicitudConexion");
 const Conexion = require("../models/Conexion");
 const Notificacion = require("../models/Notificacion");
 const Usuario = require("../models/Usuario");
+const Chat = require("../models/Chat");
 
+const camposUsuarioSolicitud =
+  "nombre nombreUsuario email intereses bio ubicacionAproximada";
+
+const obtenerIdUsuario = (usuario) => {
+  if (!usuario) return null;
+  return String(usuario._id || usuario.id || usuario);
+};
+
+const claveParUsuarios = (usuarioA, usuarioB) =>
+  [String(usuarioA), String(usuarioB)].sort().join(":");
+
+const obtenerParesConectados = async (usuarioId) => {
+  const [conexiones, solicitudesAceptadas] = await Promise.all([
+    Conexion.find({
+      $or: [
+        { usuario1: usuarioId },
+        { usuario2: usuarioId },
+        { usuario1Id: usuarioId },
+        { usuario2Id: usuarioId },
+      ],
+    })
+      .select("usuario1 usuario2 usuario1Id usuario2Id")
+      .lean(),
+    SolicitudConexion.find({
+      estado: "aceptada",
+      $or: [{ usuariosolicitante: usuarioId }, { usuarioreceptor: usuarioId }],
+    })
+      .select("usuariosolicitante usuarioreceptor")
+      .lean(),
+  ]);
+
+  const pares = new Set();
+
+  conexiones.forEach((conexion) => {
+    const usuario1Id = obtenerIdUsuario(conexion.usuario1 || conexion.usuario1Id);
+    const usuario2Id = obtenerIdUsuario(conexion.usuario2 || conexion.usuario2Id);
+
+    if (usuario1Id && usuario2Id) {
+      pares.add(claveParUsuarios(usuario1Id, usuario2Id));
+    }
+  });
+
+  solicitudesAceptadas.forEach((solicitud) => {
+    const solicitanteId = obtenerIdUsuario(solicitud.usuariosolicitante);
+    const receptorId = obtenerIdUsuario(solicitud.usuarioreceptor);
+
+    if (solicitanteId && receptorId) {
+      pares.add(claveParUsuarios(solicitanteId, receptorId));
+    }
+  });
+
+  return pares;
+};
+
+const ocultarSolicitudesDeConexionesExistentes = (solicitudes, paresConectados) =>
+  solicitudes.filter((solicitud) => {
+    const solicitanteId = obtenerIdUsuario(solicitud.usuariosolicitante);
+    const receptorId = obtenerIdUsuario(solicitud.usuarioreceptor);
+
+    if (!solicitanteId || !receptorId) return false;
+
+    return !paresConectados.has(claveParUsuarios(solicitanteId, receptorId));
+  });
 
 /*
 POST /api/solicitudes
@@ -27,7 +91,7 @@ router.post("/", async (req, res) => {
     }
 
     // Se comprueba si es que existe ya una conexion entre estos usuarios
-    const conexionExistente = await Conexion.findOne({
+    const filtroParUsuarios = {
       $or: [
         {
           usuario1: usuariosolicitante,
@@ -37,15 +101,46 @@ router.post("/", async (req, res) => {
           usuario1: usuarioreceptor,
           usuario2: usuariosolicitante,
         },
+        {
+          usuario1Id: usuariosolicitante,
+          usuario2Id: usuarioreceptor,
+        },
+        {
+          usuario1Id: usuarioreceptor,
+          usuario2Id: usuariosolicitante,
+        },
       ],
-    });
+    };
+
+    const conexionExistente = await Conexion.findOne(filtroParUsuarios).lean();
 
     if (conexionExistente) {
       return res.status(409).json({
         mensaje: "Los usuarios ya están conectados",
       });
     }
-// tambien se busca si la solicitud se encuentra ya en el sistema, para evitar duplicacion de datos
+
+    const solicitudAceptada = await SolicitudConexion.findOne({
+      estado: "aceptada",
+      $or: [
+        {
+          usuariosolicitante,
+          usuarioreceptor,
+        },
+        {
+          usuariosolicitante: usuarioreceptor,
+          usuarioreceptor: usuariosolicitante,
+        },
+      ],
+    }).lean();
+
+    if (solicitudAceptada) {
+      return res.status(409).json({
+        mensaje: "Los usuarios ya están conectados",
+      });
+    }
+
+    // tambien se busca si la solicitud se encuentra ya en el sistema, para evitar duplicacion de datos
     const solicitudExistente = await SolicitudConexion.findOne({
       estado: "pendiente",
       $or: [
@@ -58,7 +153,7 @@ router.post("/", async (req, res) => {
           usuarioreceptor: usuariosolicitante,
         },
       ],
-    });
+    }).lean();
 
     if (solicitudExistente) {
       return res.status(409).json({
@@ -120,6 +215,22 @@ router.put("/:id/aceptar", async (req, res) => {
       usuario1: solicitud.usuariosolicitante,
       usuario2: solicitud.usuarioreceptor,
     });
+
+    const chatExistente = await Chat.findOne({
+      tipo: "privado",
+      participantes: {
+        $all: [solicitud.usuariosolicitante, solicitud.usuarioreceptor],
+        $size: 2,
+      },
+    });
+
+    if (chatExistente && chatExistente.estado !== "activo") {
+      chatExistente.estado = "activo";
+      if (!chatExistente.conexionId) {
+        chatExistente.conexionId = conexion._id;
+      }
+      await chatExistente.save();
+    }
 
     solicitud.estado = "aceptada";
 
@@ -188,16 +299,23 @@ router.get("/usuario/:usuarioId", async (req, res) => {
   try {
     const { usuarioId } = req.params;
 
-    const solicitudes = await SolicitudConexion.find({
+    const [solicitudes, paresConectados] = await Promise.all([
+      SolicitudConexion.find({
       usuarioreceptor: usuarioId,
       estado: "pendiente",
     })
-      .populate("usuariosolicitante")
-      .populate("usuarioreceptor");
+      .populate("usuariosolicitante", camposUsuarioSolicitud)
+      .populate("usuarioreceptor", camposUsuarioSolicitud)
+        .lean(),
+      obtenerParesConectados(usuarioId),
+    ]);
 
     res.json({
       mensaje: "Solicitudes obtenidas correctamente",
-      solicitudes,
+      solicitudes: ocultarSolicitudesDeConexionesExistentes(
+        solicitudes,
+        paresConectados
+      ),
     });
   } catch (error) {
     console.error(error);
@@ -216,19 +334,26 @@ router.get("/pendientes/:usuarioId", async (req, res) => {
   try {
     const { usuarioId } = req.params;
 
-    const solicitudes = await SolicitudConexion.find({
+    const [solicitudes, paresConectados] = await Promise.all([
+      SolicitudConexion.find({
       estado: "pendiente",
       $or: [
         { usuariosolicitante: usuarioId },
         { usuarioreceptor: usuarioId },
       ],
     })
-      .populate("usuariosolicitante")
-      .populate("usuarioreceptor");
+      .populate("usuariosolicitante", camposUsuarioSolicitud)
+      .populate("usuarioreceptor", camposUsuarioSolicitud)
+        .lean(),
+      obtenerParesConectados(usuarioId),
+    ]);
 
     res.json({
       mensaje: "Solicitudes pendientes obtenidas correctamente",
-      solicitudes,
+      solicitudes: ocultarSolicitudesDeConexionesExistentes(
+        solicitudes,
+        paresConectados
+      ),
     });
   } catch (error) {
     console.error(error);

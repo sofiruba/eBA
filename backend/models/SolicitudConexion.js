@@ -25,6 +25,9 @@ const solicitudConexionSchema = new mongoose.Schema(
   }
 );
 
+solicitudConexionSchema.index({ usuarioreceptor: 1, estado: 1, updatedAt: -1 });
+solicitudConexionSchema.index({ usuariosolicitante: 1, estado: 1, updatedAt: -1 });
+
 module.exports = mongoose.model(
   "SolicitudConexion", solicitudConexionSchema
 );

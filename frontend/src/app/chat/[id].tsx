@@ -68,6 +68,7 @@ export default function ChatDetailScreen() {
   const scrollRef = useRef<ScrollView | null>(null);
   const posicionesMensajes = useRef<Record<string, number>>({});
   const [modalParticipantesVisible, setModalParticipantesVisible] = useState(false);
+  const [saliendoGrupo, setSaliendoGrupo] = useState(false);
 
   const scrollAlFinal = (animado = true) => {
     requestAnimationFrame(() => {
@@ -148,7 +149,7 @@ export default function ChatDetailScreen() {
       if (!id) return;
       return cargarMensajes(String(id));
     }, [id]),
-    5000,
+    10000,
     !loading
   );
 
@@ -339,7 +340,9 @@ export default function ChatDetailScreen() {
   };
   const salirDelGrupo = async () => {
     try {
-      if (!usuarioActualId || !id) return;
+      if (!usuarioActualId || !id || saliendoGrupo) return;
+
+      setSaliendoGrupo(true);
 
       const response = await fetch(`${API_URL}/api/chats/${id}/salir`, {
         method: "POST",
@@ -350,6 +353,7 @@ export default function ChatDetailScreen() {
       const data = await response.json();
 
       if (!response.ok) {
+        console.log("Error saliendo del grupo:", data);
         alert(data.error || "No se pudo salir del grupo.");
         return;
       }
@@ -357,8 +361,23 @@ export default function ChatDetailScreen() {
       setModalParticipantesVisible(false);
       router.replace("/chats" as any);
     } catch (error) {
+      console.log("Error saliendo del grupo:", error);
       alert("No se pudo conectar con el servidor.");
+    } finally {
+      setSaliendoGrupo(false);
     }
+  };
+
+  const confirmarSalidaGrupo = () => {
+    setModalParticipantesVisible(false);
+
+    setTimeout(() => {
+      confirmarAccion(
+        "Salir del grupo",
+        "¿Querés salir de este grupo?",
+        salirDelGrupo
+      );
+    }, 80);
   };
 
   const formatearHora = (fecha?: string) => {
@@ -719,17 +738,14 @@ export default function ChatDetailScreen() {
             </ScrollView>
 
             <TouchableOpacity
-              style={styles.leaveButton}
+              style={[styles.leaveButton, saliendoGrupo && styles.leaveButtonDisabled]}
               activeOpacity={0.85}
-              onPress={() =>
-                confirmarAccion(
-                  "Salir del grupo",
-                  "¿Querés salir de este grupo?",
-                  salirDelGrupo
-                )
-              }
+              disabled={saliendoGrupo}
+              onPress={confirmarSalidaGrupo}
             >
-              <Text style={styles.leaveButtonText}>Salir del grupo</Text>
+              <Text style={styles.leaveButtonText}>
+                {saliendoGrupo ? "Saliendo..." : "Salir del grupo"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1109,6 +1125,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     alignItems: "center",
+  },
+  leaveButtonDisabled: {
+    opacity: 0.65,
   },
   leaveButtonText: {
     color: "#E53935",

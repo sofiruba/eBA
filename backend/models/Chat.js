@@ -40,4 +40,7 @@ const ChatSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+ChatSchema.index({ participantes: 1, estado: 1, updatedAt: -1 });
+ChatSchema.index({ tipo: 1, eventoId: 1 });
+
 module.exports = mongoose.model("Chat", ChatSchema);

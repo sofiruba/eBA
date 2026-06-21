@@ -30,7 +30,7 @@ import useAutoRefresh from "../../hooks/useAutoRefresh";
 import { Usuario } from "../../types/Usuario";
 import { Publicacion, Comentario } from "../../types/Social";
 import { Evento } from "../../types/Evento";
-import { getCached, setCached } from "../../utils/cache";
+import { getCached, invalidateCachedByPrefix, removeCached, setCached } from "../../utils/cache";
 
 export default function PublicationDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -85,8 +85,8 @@ export default function PublicationDetailScreen() {
       }
 
       await Promise.all([
-        cargarPublicacion(),
-        cargarComentarios(),
+        cargarPublicacion(idUsuario),
+        cargarComentarios(idUsuario),
         cargarBloqueos(idUsuario),
       ]);
     } catch (error) {
@@ -97,9 +97,10 @@ export default function PublicationDetailScreen() {
     }
   };
 
-  const cargarPublicacion = async () => {
+  const cargarPublicacion = async (idUsuario = usuarioActualId) => {
     try {
-      const response = await fetch(`${API_URL}/api/publicaciones/${id}`);
+      const query = idUsuario ? `?usuarioId=${idUsuario}` : "";
+      const response = await fetch(`${API_URL}/api/publicaciones/${id}${query}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -116,9 +117,12 @@ export default function PublicationDetailScreen() {
     }
   };
 
-  const cargarComentarios = async () => {
+  const cargarComentarios = async (idUsuario = usuarioActualId) => {
     try {
-      const response = await fetch(`${API_URL}/api/comentarios/publicacion/${id}`);
+      const query = idUsuario ? `?usuarioId=${idUsuario}` : "";
+      const response = await fetch(
+        `${API_URL}/api/comentarios/publicacion/${id}${query}`
+      );
       const data = await response.json();
 
       if (!response.ok) {
@@ -157,7 +161,7 @@ export default function PublicationDetailScreen() {
 
   useAutoRefresh(
     useCallback(() => cargarComentarios(), [id]),
-    10000,
+    30000,
     !loading
   );
 
@@ -249,6 +253,7 @@ export default function PublicationDetailScreen() {
       };
 
       setComentarios((prev) => [...prev, comentarioNuevo]);
+      removeCached(`comentarios:publicacion:${String(id)}`);
       setNuevoComentario("");
     } catch (error) {
       console.log("Error al comentar:", error);
@@ -303,6 +308,7 @@ export default function PublicationDetailScreen() {
       };
 
       setComentarios((prev) => [...prev, respuestaNueva]);
+      removeCached(`comentarios:publicacion:${String(id)}`);
 
       setRespuestas((prev) => ({
         ...prev,
@@ -346,6 +352,7 @@ export default function PublicationDetailScreen() {
       setPublicacion(data.publicacion);
       setTextoPublicacionEditada(data.publicacion?.contenido || "");
       setEditandoPublicacion(false);
+      removeCached(`publicacion:${publicacion._id}`);
     } catch (error) {
       console.log("Error editando publicación:", error);
       alert("No se pudo conectar con el servidor.");
@@ -378,6 +385,9 @@ export default function PublicationDetailScreen() {
       }
 
       alert("Publicación eliminada correctamente.");
+      removeCached(`publicacion:${publicacion._id}`);
+      removeCached(`comentarios:publicacion:${publicacion._id}`);
+      invalidateCachedByPrefix("publicaciones:evento:");
       router.back();
     } catch (error) {
       console.log("Error eliminando publicación:", error);
@@ -423,8 +433,9 @@ export default function PublicationDetailScreen() {
                 updatedAt: data.comentario?.updatedAt || new Date().toISOString(),
               }
             : comentario
-        )
+          )
       );
+      removeCached(`comentarios:publicacion:${String(id)}`);
     } catch (error) {
       console.log("Error editando comentario:", error);
       alert("No se pudo conectar con el servidor.");
@@ -458,6 +469,7 @@ export default function PublicationDetailScreen() {
           return comentario._id !== comentarioId && padre !== comentarioId;
         })
       );
+      removeCached(`comentarios:publicacion:${String(id)}`);
     } catch (error) {
       console.log("Error eliminando comentario:", error);
       alert("No se pudo conectar con el servidor.");

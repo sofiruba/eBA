@@ -175,7 +175,8 @@ router.get("/chat/:chatId", async (req, res) => {
           select: "nombre nombreUsuario",
         },
       })
-      .sort({ fechaEnvio: 1 }); // orden cronológico
+      .sort({ fechaEnvio: 1 })
+      .lean(); // orden cronológico
     res.json({ message: "Mensajes obtenidos correctamente", mensajes });
   } catch (error) {
     res.status(500).json({ error: "Error al obtener mensajes", detalle: error.message });

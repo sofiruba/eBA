@@ -133,7 +133,19 @@ export default function HomeScreen() {
 
   const cargarNotificaciones = async (usuarioId: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/notificaciones/usuario/${usuarioId}`);
+      const responseResumen = await fetch(
+        `${API_URL}/api/notificaciones/usuario/${usuarioId}/resumen`
+      );
+      const dataResumen = await responseResumen.json();
+
+      if (responseResumen.ok) {
+        setNotificacionesNoLeidas(dataResumen.noLeidas || 0);
+        return;
+      }
+
+      const response = await fetch(
+        `${API_URL}/api/notificaciones/usuario/${usuarioId}?limit=50`
+      );
       const data = await response.json();
 
       if (!response.ok) {

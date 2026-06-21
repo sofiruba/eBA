@@ -25,10 +25,14 @@ const LogActividad = safeRequire("../models/LogActividad");
 const Bloqueo = safeRequire("../models/Bloqueo");
 const Chat = safeRequire("../models/Chat");
 const Mensaje = safeRequire("../models/Mensaje");
+const Publicacion = safeRequire("../models/Publicacion");
+const Comentario = safeRequire("../models/Comentario");
 
 const generarCodigo = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
+
+const FOTO_PERFIL_MAX_LENGTH = 750000;
 
 const normalizarNombreUsuario = (valor) => {
   if (!valor) return "";
@@ -104,7 +108,9 @@ const generarSugerenciasNombreUsuario = async (base, usuarioIdIgnorado = null) =
   return sugerencias;
 };
 
-const armarUsuarioRespuesta = (usuario) => {
+const armarUsuarioRespuesta = (usuario, opciones = {}) => {
+  const { incluirFotoPerfil = true } = opciones;
+
   return {
     id: usuario._id,
     nombre: usuario.nombre,
@@ -114,7 +120,7 @@ const armarUsuarioRespuesta = (usuario) => {
     ubicacionAproximada: usuario.ubicacionAproximada,
     bio: usuario.bio,
     instagram: usuario.instagram,
-    fotoPerfil: usuario.fotoPerfil,
+    fotoPerfil: incluirFotoPerfil ? usuario.fotoPerfil : "",
     intereses: usuario.intereses,
     emailVerificado: usuario.emailVerificado,
     esOrganizador: usuario.esOrganizador,
@@ -248,7 +254,7 @@ router.post("/auth/google/token", async (req, res) => {
 
     let usuario = await Usuario.findOne({
       $or: [{ googleId: perfil.sub }, { email: emailGoogle }],
-    });
+    }).select("-fotoPerfil");
 
     let esNuevo = false;
 
@@ -298,7 +304,7 @@ router.post("/auth/google/token", async (req, res) => {
 
     return res.json({
       message: "Login con Google correcto",
-      usuario: armarUsuarioRespuesta(usuario),
+      usuario: armarUsuarioRespuesta(usuario, { incluirFotoPerfil: false }),
       esNuevo,
     });
   } catch (error) {
@@ -499,7 +505,7 @@ router.post("/login", async (req, res) => {
 
     const usuario = await Usuario.findOne({
       email: email.toLowerCase().trim(),
-    });
+    }).select("-fotoPerfil");
 
     if (!usuario) {
       return res.status(401).json({
@@ -528,7 +534,7 @@ router.post("/login", async (req, res) => {
 
     return res.json({
       message: "Login correcto",
-      usuario: armarUsuarioRespuesta(usuario),
+      usuario: armarUsuarioRespuesta(usuario, { incluirFotoPerfil: false }),
     });
   } catch (error) {
     return res.status(500).json({
@@ -754,7 +760,19 @@ router.put("/:id", async (req, res) => {
 
     if (bio !== undefined) datosActualizados.bio = bio;
     if (instagram !== undefined) datosActualizados.instagram = instagram;
-    if (fotoPerfil !== undefined) datosActualizados.fotoPerfil = fotoPerfil;
+    if (fotoPerfil !== undefined) {
+      if (
+        typeof fotoPerfil === "string" &&
+        fotoPerfil.startsWith("data:image") &&
+        fotoPerfil.length > FOTO_PERFIL_MAX_LENGTH
+      ) {
+        return res.status(413).json({
+          error: "La foto de perfil es demasiado grande. Probá con otra imagen.",
+        });
+      }
+
+      datosActualizados.fotoPerfil = fotoPerfil;
+    }
     if (intereses !== undefined) datosActualizados.intereses = intereses;
 
     const usuario = await Usuario.findByIdAndUpdate(
@@ -1040,6 +1058,108 @@ router.delete("/:id", async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       error: "Error al eliminar usuario",
+      detalle: error.message,
+    });
+  }
+});
+
+// GET /api/usuarios/perfil-resumen/:usuarioId
+router.get("/perfil-resumen/:usuarioId", async (req, res) => {
+  try {
+    const { usuarioId } = req.params;
+
+    const usuario = await Usuario.findById(usuarioId)
+      .select(
+        "nombre email edad ubicacionAproximada bio instagram intereses emailVerificado esOrganizador nombreUsuario createdAt updatedAt"
+      )
+      .lean();
+
+    if (!usuario) {
+      return res.status(404).json({
+        error: "Usuario no encontrado",
+      });
+    }
+
+    const [asistencias, favoritos, publicaciones, bloqueos] =
+      await Promise.all([
+        Asistencia
+          ? Asistencia.find({ usuarioId })
+              .populate(
+                "eventoId",
+                "nombre descripcion fecha categoria imagen ubicacion organizador esPromocionado"
+              )
+              .sort({ updatedAt: -1 })
+              .limit(10)
+              .lean()
+          : [],
+        Favorito
+          ? Favorito.find({ usuarioId })
+              .populate(
+                "eventoId",
+                "nombre descripcion fecha categoria imagen ubicacion organizador esPromocionado"
+              )
+              .sort({ updatedAt: -1 })
+              .limit(10)
+              .lean()
+          : [],
+        Publicacion
+          ? Publicacion.find({ usuarioId })
+              .populate("usuarioId", "nombre nombreUsuario email intereses bio")
+              .populate("eventoId", "nombre fecha categoria imagen ubicacion organizador")
+              .sort({ createdAt: -1 })
+              .limit(10)
+              .lean()
+          : [],
+        Bloqueo
+          ? Bloqueo.find({ bloqueadorId: usuarioId })
+              .populate("bloqueadoId", "nombre email")
+              .sort({ updatedAt: -1 })
+              .lean()
+          : [],
+      ]);
+
+    let publicacionesConConteo = publicaciones;
+
+    if (Comentario && publicaciones.length > 0) {
+      const publicacionesIds = publicaciones.map((publicacion) => publicacion._id);
+      const comentariosPorPublicacion = await Comentario.aggregate([
+        {
+          $match: {
+            publicacionId: { $in: publicacionesIds },
+          },
+        },
+        {
+          $group: {
+            _id: "$publicacionId",
+            total: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const conteos = new Map(
+        comentariosPorPublicacion.map((comentario) => [
+          String(comentario._id),
+          comentario.total,
+        ])
+      );
+
+      publicacionesConConteo = publicaciones.map((publicacion) => ({
+        ...publicacion,
+        comentariosCount: conteos.get(String(publicacion._id)) || 0,
+      }));
+    }
+
+    return res.json({
+      message: "Resumen de perfil obtenido correctamente",
+      usuario,
+      asistencias,
+      favoritos,
+      publicaciones: publicacionesConConteo,
+      bloqueos,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error al obtener resumen de perfil",
       detalle: error.message,
     });
   }

@@ -41,6 +41,7 @@ import { Asistencia } from "../types/Asistencia";
 import { Evento } from "../types/Evento";
 import { Publicacion } from "../types/Social";
 import { eventoYaPaso } from "../utils/eventHelpers";
+import { invalidateEventCaches, invalidateSocialCaches } from "../utils/cache";
 
 type Bloqueo = {
   _id: string;
@@ -90,6 +91,24 @@ export default function ProfileScreen() {
       setUsuario(usuarioParseado);
 
       if (usuarioId) {
+        try {
+          const responseResumen = await fetch(
+            `${API_URL}/api/usuarios/perfil-resumen/${usuarioId}`
+          );
+          const dataResumen = await responseResumen.json();
+
+          if (responseResumen.ok) {
+            setUsuario(dataResumen.usuario || usuarioParseado);
+            setAsistencias(dataResumen.asistencias || []);
+            setFavoritos(dataResumen.favoritos || []);
+            setPublicaciones(dataResumen.publicaciones || []);
+            setBloqueos(dataResumen.bloqueos || []);
+            return;
+          }
+        } catch (errorResumen) {
+          console.log("Error usando resumen de perfil:", errorResumen);
+        }
+
         const [
           responseAsistencias,
           responseFavoritos,
@@ -226,6 +245,7 @@ export default function ProfileScreen() {
         return;
       }
 
+      invalidateSocialCaches(bloqueadorId);
       await cargarUsuario();
     } catch (error) {
       console.log("Error desbloqueando usuario:", error);
@@ -263,6 +283,7 @@ export default function ProfileScreen() {
       }
 
       setFavoritos((prev) => prev.filter((favorito) => favorito._id !== favoritoId));
+      invalidateEventCaches(null, obtenerUsuarioId(usuario));
     } catch (error) {
       console.log("Error eliminando favorito:", error);
       alert("No se pudo conectar con el servidor.");

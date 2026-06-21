@@ -43,4 +43,9 @@ const eventoSchema = new mongoose.Schema(
   }
 );
 
+eventoSchema.index({ fecha: 1 });
+eventoSchema.index({ activo: 1, fecha: 1 });
+eventoSchema.index({ esPromocionado: 1, activo: 1, fecha: 1 });
+eventoSchema.index({ categoria: 1, fecha: 1 });
+
 module.exports = mongoose.model("Evento", eventoSchema, "eventos");

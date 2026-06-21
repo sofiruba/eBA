@@ -4,10 +4,49 @@ const router = express.Router();
 const Publicacion = require("../models/Publicacion");
 const Comentario = require("../models/Comentario");
 const Evento = require("../models/Evento");
+const Bloqueo = require("../models/Bloqueo");
+
+const camposUsuarioPublicacion = "nombre nombreUsuario email intereses bio";
 
 const eventoFinalizado = (evento) => {
   if (!evento?.fecha) return false;
   return new Date(evento.fecha).getTime() < Date.now() || evento.activo === false;
+};
+const obtenerLimit = (req, defecto = 10, maximo = 50) => {
+  const valor = Number(req.query.limit);
+  if (!Number.isFinite(valor) || valor <= 0) return defecto;
+  return Math.min(Math.floor(valor), maximo);
+};
+
+const obtenerIdsBloqueados = async (usuarioId) => {
+  if (!usuarioId) return new Set();
+
+  const bloqueos = await Bloqueo.find({
+    $or: [{ bloqueadorId: usuarioId }, { bloqueadoId: usuarioId }],
+  })
+    .select("bloqueadorId bloqueadoId")
+    .lean();
+
+  return new Set(
+    bloqueos
+      .flatMap((bloqueo) => [
+        String(bloqueo.bloqueadorId),
+        String(bloqueo.bloqueadoId),
+      ])
+      .filter((id) => id !== String(usuarioId))
+  );
+};
+
+const filtrarPublicacionesBloqueadas = (publicaciones, idsBloqueados) => {
+  if (!idsBloqueados.size) return publicaciones;
+
+  return publicaciones.filter((publicacion) => {
+    const autorId = String(
+      publicacion.usuarioId?._id || publicacion.usuarioId?.id || publicacion.usuarioId
+    );
+
+    return !idsBloqueados.has(autorId);
+  });
 };
 
 // Crear publicación
@@ -47,14 +86,18 @@ router.post("/", async (req, res) => {
 // Obtener todas las publicaciones
 router.get("/", async (req, res) => {
   try {
+    const limit = obtenerLimit(req, 10, 50);
+    const idsBloqueados = await obtenerIdsBloqueados(req.query.usuarioId);
     const publicaciones = await Publicacion.find()
-      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
+      .populate("usuarioId", camposUsuarioPublicacion)
       .populate("eventoId", "nombre fecha categoria")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
 
     res.json({
       message: "Publicaciones obtenidas correctamente",
-      publicaciones,
+      publicaciones: filtrarPublicacionesBloqueadas(publicaciones, idsBloqueados),
     });
   } catch (error) {
     res.status(500).json({
@@ -67,14 +110,21 @@ router.get("/", async (req, res) => {
 // Obtener publicaciones de un evento
 router.get("/evento/:eventoId", async (req, res) => {
   try {
+    const limit = obtenerLimit(req, 10, 50);
+    const idsBloqueados = await obtenerIdsBloqueados(req.query.usuarioId);
     const publicaciones = await Publicacion.find({
       eventoId: req.params.eventoId,
     })
-      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
+      .populate("usuarioId", camposUsuarioPublicacion)
       .sort({ createdAt: -1 })
+      .limit(limit)
       .lean();
+    const publicacionesVisibles = filtrarPublicacionesBloqueadas(
+      publicaciones,
+      idsBloqueados
+    );
 
-    const publicacionesIds = publicaciones.map((publicacion) => publicacion._id);
+    const publicacionesIds = publicacionesVisibles.map((publicacion) => publicacion._id);
     const comentariosPorPublicacion = await Comentario.aggregate([
       {
         $match: {
@@ -96,7 +146,7 @@ router.get("/evento/:eventoId", async (req, res) => {
       ])
     );
 
-    const publicacionesConConteo = publicaciones.map((publicacion) => ({
+    const publicacionesConConteo = publicacionesVisibles.map((publicacion) => ({
       ...publicacion,
       comentariosCount: conteos.get(String(publicacion._id)) || 0,
     }));
@@ -116,12 +166,14 @@ router.get("/evento/:eventoId", async (req, res) => {
 // Obtener publicaciones de un usuario
 router.get("/usuario/:usuarioId", async (req, res) => {
   try {
+    const limit = obtenerLimit(req, 10, 50);
     const publicaciones = await Publicacion.find({
       usuarioId: req.params.usuarioId,
     })
-      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
+      .populate("usuarioId", camposUsuarioPublicacion)
       .populate("eventoId", "nombre fecha categoria imagen ubicacion organizador")
       .sort({ createdAt: -1 })
+      .limit(limit)
       .lean();
 
     const publicacionesIds = publicaciones.map((publicacion) => publicacion._id);
@@ -167,12 +219,20 @@ router.get("/usuario/:usuarioId", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const publicacion = await Publicacion.findById(req.params.id)
-      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
+      .populate("usuarioId", camposUsuarioPublicacion)
       .populate("eventoId", "nombre fecha categoria imagen ubicacion organizador");
 
     if (!publicacion) {
       return res.status(404).json({
         error: "Publicación no encontrada",
+      });
+    }
+
+    const idsBloqueados = await obtenerIdsBloqueados(req.query.usuarioId);
+
+    if (filtrarPublicacionesBloqueadas([publicacion], idsBloqueados).length === 0) {
+      return res.status(403).json({
+        error: "No podés ver esta publicación.",
       });
     }
 

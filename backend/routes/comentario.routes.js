@@ -5,6 +5,33 @@ const Comentario = require("../models/Comentario");
 const Notificacion = require("../models/Notificacion");
 const Publicacion = require("../models/Publicacion");
 const Usuario = require("../models/Usuario");
+const Bloqueo = require("../models/Bloqueo");
+
+const camposUsuarioComentario = "nombre nombreUsuario email intereses bio";
+
+const obtenerIdsBloqueados = async (usuarioId) => {
+  if (!usuarioId) return new Set();
+
+  const bloqueos = await Bloqueo.find({
+    $or: [{ bloqueadorId: usuarioId }, { bloqueadoId: usuarioId }],
+  })
+    .select("bloqueadorId bloqueadoId")
+    .lean();
+
+  return new Set(
+    bloqueos
+      .flatMap((bloqueo) => [
+        String(bloqueo.bloqueadorId),
+        String(bloqueo.bloqueadoId),
+      ])
+      .filter((id) => id !== String(usuarioId))
+  );
+};
+
+const autorEstaBloqueado = (item, idsBloqueados) => {
+  const autorId = String(item.usuarioId?._id || item.usuarioId?.id || item.usuarioId);
+  return idsBloqueados.has(autorId);
+};
 
 // Crear comentario o respuesta
 router.post("/", async (req, res) => {
@@ -14,6 +41,29 @@ router.post("/", async (req, res) => {
     if (!publicacionId || !usuarioId || !contenido) {
       return res.status(400).json({
         error: "publicacionId, usuarioId y contenido son obligatorios",
+      });
+    }
+
+    const publicacion = await Publicacion.findById(publicacionId).select(
+      "usuarioId contenido"
+    );
+
+    if (!publicacion) {
+      return res.status(404).json({
+        error: "Publicación no encontrada",
+      });
+    }
+
+    const bloqueoEntreUsuarios = await Bloqueo.findOne({
+      $or: [
+        { bloqueadorId: usuarioId, bloqueadoId: publicacion.usuarioId },
+        { bloqueadorId: publicacion.usuarioId, bloqueadoId: usuarioId },
+      ],
+    }).lean();
+
+    if (bloqueoEntreUsuarios) {
+      return res.status(403).json({
+        error: "No podés comentar esta publicación.",
       });
     }
 
@@ -27,12 +77,9 @@ router.post("/", async (req, res) => {
     await comentario.save();
 
     const comentarioPopulado = await Comentario.findById(comentario._id)
-      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
+      .populate("usuarioId", camposUsuarioComentario)
       .populate("comentarioPadreId");
 
-    const publicacion = await Publicacion.findById(publicacionId).select(
-      "usuarioId contenido"
-    );
     const usuarioComentador = await Usuario.findById(usuarioId).select(
       "nombre nombreUsuario"
     );
@@ -41,7 +88,7 @@ router.post("/", async (req, res) => {
 
     const notificaciones = [];
 
-    if (publicacion && String(publicacion.usuarioId) !== String(usuarioId)) {
+    if (String(publicacion.usuarioId) !== String(usuarioId)) {
       notificaciones.push({
         usuarioId: publicacion.usuarioId,
         mensaje: comentarioPadreId
@@ -99,12 +146,16 @@ router.get("/publicacion/:publicacionId", async (req, res) => {
     const comentarios = await Comentario.find({
       publicacionId: req.params.publicacionId,
     })
-      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
-      .sort({ createdAt: 1 });
+      .populate("usuarioId", camposUsuarioComentario)
+      .sort({ createdAt: 1 })
+      .lean();
+    const idsBloqueados = await obtenerIdsBloqueados(req.query.usuarioId);
 
     res.json({
       message: "Comentarios obtenidos correctamente",
-      comentarios,
+      comentarios: comentarios.filter(
+        (comentario) => !autorEstaBloqueado(comentario, idsBloqueados)
+      ),
     });
   } catch (error) {
     res.status(500).json({
@@ -149,7 +200,7 @@ router.put("/:id", async (req, res) => {
         contenido: req.body.contenido,
       },
       { new: true }
-    ).populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio");
+    ).populate("usuarioId", camposUsuarioComentario);
 
     if (!comentario) {
       return res.status(404).json({
@@ -200,7 +251,7 @@ router.put("/:id", async (req, res) => {
 
     const comentarioActualizado = await Comentario.findById(id).populate(
       "usuarioId",
-      "nombre nombreUsuario email fotoPerfil intereses bio"
+      camposUsuarioComentario
     );
 
     return res.json({

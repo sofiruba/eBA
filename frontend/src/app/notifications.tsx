@@ -136,7 +136,7 @@ export default function NotificationsScreen() {
 
   useAutoRefresh(
     useCallback(() => cargarNotificaciones(true), []),
-    15000,
+    60000,
     !loading
   );
 

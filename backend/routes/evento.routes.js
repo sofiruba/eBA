@@ -20,6 +20,8 @@ const Asistencia = safeRequire("../models/Asistencia");
 const Publicacion = safeRequire("../models/Publicacion");
 const Comentario = safeRequire("../models/Comentario");
 const Favorito = safeRequire("../models/Favorito");
+const Bloqueo = safeRequire("../models/Bloqueo");
+const SolicitudConexion = safeRequire("../models/SolicitudConexion");
 const PromocionEvento = safeRequire("../models/PromocionEvento");
 const Pago = safeRequire("../models/Pago");
 const Plan = safeRequire("../models/Plan");
@@ -32,6 +34,38 @@ const eliminarSiExiste = async (Modelo, filtro) => {
   }
 
   return await Modelo.deleteMany(filtro);
+};
+
+const filtroConexionesUsuario = (usuarioId) => ({
+  $or: [
+    { usuario1: usuarioId },
+    { usuario2: usuarioId },
+    { usuario1Id: usuarioId },
+    { usuario2Id: usuarioId },
+  ],
+});
+
+const camposUsuarioConexion =
+  "nombre nombreUsuario email intereses bio ubicacionAproximada";
+
+const poblarUsuariosConexion = (query) =>
+  query
+    .populate("usuario1", camposUsuarioConexion)
+    .populate("usuario2", camposUsuarioConexion)
+    .populate("usuario1Id", camposUsuarioConexion)
+    .populate("usuario2Id", camposUsuarioConexion);
+
+const normalizarConexion = (conexion) => {
+  if (!conexion) return conexion;
+
+  const conexionNormalizada = { ...conexion };
+  conexionNormalizada.usuario1 = conexion.usuario1 || conexion.usuario1Id;
+  conexionNormalizada.usuario2 = conexion.usuario2 || conexion.usuario2Id;
+
+  delete conexionNormalizada.usuario1Id;
+  delete conexionNormalizada.usuario2Id;
+
+  return conexionNormalizada;
 };
 
 // Obtener todos los eventos
@@ -215,11 +249,9 @@ router.get("/buscar/:texto", async (req, res) => {
 // GET /api/eventos/recomendados/:usuarioId
 router.get("/recomendados/:usuarioId", async (req, res) => {
   try {
-    await actualizarEventosVencidos();
-
     const { usuarioId } = req.params;
 
-    const usuario = await Usuario.findById(usuarioId);
+    const usuario = await Usuario.findById(usuarioId).select("intereses").lean();
 
     if (!usuario) {
       return res.status(404).json({
@@ -242,6 +274,65 @@ router.get("/recomendados/:usuarioId", async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       error: "Error al obtener eventos recomendados",
+      detalle: error.message,
+    });
+  }
+});
+
+// GET /api/eventos/resumen/:eventoId/usuario/:usuarioId
+router.get("/resumen/:eventoId/usuario/:usuarioId", async (req, res) => {
+  try {
+    const { eventoId, usuarioId } = req.params;
+
+    const [evento, asistencias, conexiones, solicitudes, bloqueos] =
+      await Promise.all([
+        Evento.findById(eventoId).lean(),
+        Asistencia
+          ? Asistencia.find({ eventoId })
+              .populate(
+                "usuarioId",
+                "nombre nombreUsuario email intereses bio ubicacionAproximada"
+              )
+              .lean()
+          : [],
+        poblarUsuariosConexion(Conexion.find(filtroConexionesUsuario(usuarioId)))
+          .sort({ updatedAt: -1 })
+          .lean(),
+        SolicitudConexion
+          ? SolicitudConexion.find({
+              estado: "pendiente",
+              $or: [
+                { usuariosolicitante: usuarioId },
+                { usuarioreceptor: usuarioId },
+              ],
+            })
+              .select("usuariosolicitante usuarioreceptor estado createdAt updatedAt")
+              .lean()
+          : [],
+        Bloqueo
+          ? Bloqueo.find({ bloqueadorId: usuarioId })
+              .select("bloqueadoId")
+              .lean()
+          : [],
+      ]);
+
+    if (!evento) {
+      return res.status(404).json({
+        error: "Evento no encontrado",
+      });
+    }
+
+    return res.json({
+      message: "Resumen de evento obtenido correctamente",
+      evento,
+      asistencias,
+      conexiones: conexiones.map(normalizarConexion),
+      solicitudes,
+      bloqueos,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error al obtener resumen de evento",
       detalle: error.message,
     });
   }

@@ -28,6 +28,8 @@ const comentarioSchema = new mongoose.Schema(
   }
 );
 
+comentarioSchema.index({ publicacionId: 1, createdAt: 1 });
+
 module.exports = mongoose.model(
   "Comentario",
   comentarioSchema,

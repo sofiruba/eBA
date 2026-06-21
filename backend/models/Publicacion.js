@@ -27,6 +27,9 @@ const publicacionSchema = new mongoose.Schema(
   }
 );
 
+publicacionSchema.index({ usuarioId: 1, createdAt: -1 });
+publicacionSchema.index({ eventoId: 1, createdAt: -1 });
+
 module.exports = mongoose.model(
   "Publicacion",
   publicacionSchema,

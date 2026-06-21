@@ -2,6 +2,11 @@ const express = require("express");
 const router = express.Router();
 
 const Notificacion = require("../models/Notificacion");
+const obtenerLimit = (req, defecto = 10, maximo = 50) => {
+  const valor = Number(req.query.limit);
+  if (!Number.isFinite(valor) || valor <= 0) return defecto;
+  return Math.min(Math.floor(valor), maximo);
+};
 
 // Crear notificación
 router.post("/", async (req, res) => {
@@ -34,10 +39,12 @@ router.post("/", async (req, res) => {
 // Obtener todas las notificaciones
 router.get("/", async (req, res) => {
   try {
+    const limit = obtenerLimit(req, 10, 50);
     const notificaciones = await Notificacion.find()
-      .populate("usuarioId", "nombre email")
-      .populate("actorId", "nombre nombreUsuario fotoPerfil")
-      .sort({ createdAt: -1 });
+      .select("usuarioId mensaje tipo entidadTipo entidadId actorId leida createdAt")
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
 
     res.json({
       message: "Notificaciones obtenidas correctamente",
@@ -51,14 +58,37 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Obtener resumen liviano de notificaciones de un usuario
+router.get("/usuario/:usuarioId/resumen", async (req, res) => {
+  try {
+    const noLeidas = await Notificacion.countDocuments({
+      usuarioId: req.params.usuarioId,
+      leida: false,
+    });
+
+    res.json({
+      message: "Resumen de notificaciones obtenido correctamente",
+      noLeidas,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al obtener resumen de notificaciones",
+      detalle: error.message,
+    });
+  }
+});
+
 // Obtener notificaciones de un usuario
 router.get("/usuario/:usuarioId", async (req, res) => {
   try {
+    const limit = obtenerLimit(req, 10, 50);
     const notificaciones = await Notificacion.find({
       usuarioId: req.params.usuarioId,
     })
-      .populate("actorId", "nombre nombreUsuario fotoPerfil")
-      .sort({ createdAt: -1 });
+      .select("mensaje tipo entidadTipo entidadId actorId leida createdAt")
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
 
     res.json({
       message: "Notificaciones obtenidas correctamente",
@@ -77,7 +107,7 @@ router.get("/:id", async (req, res) => {
   try {
     const notificacion = await Notificacion.findById(req.params.id)
       .populate("usuarioId", "nombre email")
-      .populate("actorId", "nombre nombreUsuario fotoPerfil");
+      .populate("actorId", "nombre nombreUsuario");
 
     if (!notificacion) {
       return res.status(404).json({

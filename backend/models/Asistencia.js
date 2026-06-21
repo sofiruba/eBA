@@ -25,5 +25,7 @@ const asistenciaSchema = new mongoose.Schema(
 
 // Evita que un mismo usuario se registre dos veces al mismo evento
 asistenciaSchema.index({ usuarioId: 1, eventoId: 1 }, { unique: true });
+asistenciaSchema.index({ usuarioId: 1, updatedAt: -1 });
+asistenciaSchema.index({ eventoId: 1, updatedAt: -1 });
 
 module.exports = mongoose.model("Asistencia", asistenciaSchema);

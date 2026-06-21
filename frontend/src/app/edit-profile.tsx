@@ -13,12 +13,50 @@ import { router } from "expo-router";
 import { ArrowLeft, Camera } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 
 import { API_URL } from "../config/api";
 import InterestChips from "../components/InterestChips";
 import UserAvatar from "../components/UserAvatar";
 import { Interes } from "../types/Interes";
 import { Usuario } from "../types/Usuario";
+
+const FOTO_PERFIL_MAX_BASE64_LENGTH = 700000;
+
+const comprimirFotoPerfil = async (uri: string) => {
+    const primeraPasada = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 512 } }],
+        {
+            compress: 0.6,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: true,
+        }
+    );
+
+    if (
+        primeraPasada.base64 &&
+        primeraPasada.base64.length <= FOTO_PERFIL_MAX_BASE64_LENGTH
+    ) {
+        return `data:image/jpeg;base64,${primeraPasada.base64}`;
+    }
+
+    const segundaPasada = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 320 } }],
+        {
+            compress: 0.45,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: true,
+        }
+    );
+
+    if (!segundaPasada.base64) {
+        throw new Error("No se pudo comprimir la imagen");
+    }
+
+    return `data:image/jpeg;base64,${segundaPasada.base64}`;
+};
 
 export default function EditProfileScreen() {
     const [usuarioId, setUsuarioId] = useState("");
@@ -118,20 +156,20 @@ export default function EditProfileScreen() {
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 aspect: [1, 1],
-                quality: 0.2,
-                base64: true,
+                quality: 0.8,
+                base64: false,
             });
 
             if (resultado.canceled) return;
 
             const imagen = resultado.assets[0];
 
-            if (!imagen.base64) {
+            if (!imagen.uri) {
                 alert("No se pudo cargar la imagen.");
                 return;
             }
 
-            const fotoBase64 = `data:image/jpeg;base64,${imagen.base64}`;
+            const fotoBase64 = await comprimirFotoPerfil(imagen.uri);
             setFotoPerfil(fotoBase64);
         } catch (error) {
             console.log("Error al elegir foto:", error);
