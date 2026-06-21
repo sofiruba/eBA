@@ -37,7 +37,7 @@ const claveParUsuarios = (usuarioA, usuarioB) =>
   [String(usuarioA), String(usuarioB)].sort().join(":");
 
 const camposUsuarioConexion =
-  "nombre nombreUsuario email intereses bio ubicacionAproximada";
+  "nombre nombreUsuario email fotoPerfilMini intereses bio ubicacionAproximada";
 
 const crearUsuarioMinimo = (usuarioId) => ({
   _id: usuarioId,

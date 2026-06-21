@@ -20,42 +20,91 @@ import InterestChips from "../components/InterestChips";
 import UserAvatar from "../components/UserAvatar";
 import { Interes } from "../types/Interes";
 import { Usuario } from "../types/Usuario";
+import { invalidateSocialCaches } from "../utils/cache";
 
-const FOTO_PERFIL_MAX_BASE64_LENGTH = 700000;
+const FOTO_PERFIL_MAX_BASE64_LENGTH = 500000;
+const FOTO_PERFIL_MINI_MAX_BASE64_LENGTH = 120000;
 
 const comprimirFotoPerfil = async (uri: string) => {
-    const primeraPasada = await ImageManipulator.manipulateAsync(
+    const intentos = [
+        { width: 512, compress: 0.55 },
+        { width: 360, compress: 0.45 },
+        { width: 260, compress: 0.38 },
+    ];
+
+    let ultimaImagen = "";
+
+    for (const intento of intentos) {
+        const resultado = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: intento.width } }],
+            {
+                compress: intento.compress,
+                format: ImageManipulator.SaveFormat.JPEG,
+                base64: true,
+            }
+        );
+
+        if (!resultado.base64) {
+            continue;
+        }
+
+        ultimaImagen = `data:image/jpeg;base64,${resultado.base64}`;
+
+        if (ultimaImagen.length <= FOTO_PERFIL_MAX_BASE64_LENGTH) {
+            return ultimaImagen;
+        }
+    }
+
+    if (!ultimaImagen || ultimaImagen.length > FOTO_PERFIL_MAX_BASE64_LENGTH) {
+        throw new Error("La imagen sigue siendo muy pesada");
+    }
+
+    return ultimaImagen;
+};
+
+const comprimirFotoPerfilMini = async (uri: string) => {
+    const resultado = await ImageManipulator.manipulateAsync(
         uri,
-        [{ resize: { width: 512 } }],
+        [{ resize: { width: 160 } }],
         {
-            compress: 0.6,
+            compress: 0.55,
             format: ImageManipulator.SaveFormat.JPEG,
             base64: true,
         }
     );
 
-    if (
-        primeraPasada.base64 &&
-        primeraPasada.base64.length <= FOTO_PERFIL_MAX_BASE64_LENGTH
-    ) {
-        return `data:image/jpeg;base64,${primeraPasada.base64}`;
+    if (!resultado.base64) {
+        throw new Error("No se pudo comprimir la miniatura");
     }
 
-    const segundaPasada = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 320 } }],
-        {
-            compress: 0.45,
-            format: ImageManipulator.SaveFormat.JPEG,
-            base64: true,
+    const miniatura = `data:image/jpeg;base64,${resultado.base64}`;
+
+    if (miniatura.length > FOTO_PERFIL_MINI_MAX_BASE64_LENGTH) {
+        const segundaPasada = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 120 } }],
+            {
+                compress: 0.45,
+                format: ImageManipulator.SaveFormat.JPEG,
+                base64: true,
+            }
+        );
+
+        if (!segundaPasada.base64) {
+            throw new Error("No se pudo comprimir la miniatura");
         }
-    );
 
-    if (!segundaPasada.base64) {
-        throw new Error("No se pudo comprimir la imagen");
+        return `data:image/jpeg;base64,${segundaPasada.base64}`;
     }
 
-    return `data:image/jpeg;base64,${segundaPasada.base64}`;
+    return miniatura;
+};
+
+const obtenerUbicacionTexto = (ubicacion?: string | { ciudad?: string; barrio?: string }) => {
+    if (!ubicacion) return "";
+    if (typeof ubicacion === "string") return ubicacion;
+    return ubicacion.barrio || ubicacion.ciudad || "";
 };
 
 export default function EditProfileScreen() {
@@ -68,12 +117,15 @@ export default function EditProfileScreen() {
     const [bio, setBio] = useState("");
     const [instagram, setInstagram] = useState("");
     const [fotoPerfil, setFotoPerfil] = useState("");
+    const [fotoPerfilMini, setFotoPerfilMini] = useState("");
+    const [fotoPerfilOriginal, setFotoPerfilOriginal] = useState("");
     const [nombreUsuario, setNombreUsuario] = useState("");
     const [interesesDisponibles, setInteresesDisponibles] = useState<Interes[]>([]);
     const [intereses, setIntereses] = useState<string[]>([]);
 
     const [loading, setLoading] = useState(true);
     const [guardando, setGuardando] = useState(false);
+    const [procesandoFoto, setProcesandoFoto] = useState(false);
 
     useEffect(() => {
         cargarUsuario();
@@ -113,10 +165,14 @@ export default function EditProfileScreen() {
             setNombre(usuarioCompleto.nombre || "");
             setNombreUsuario(usuarioCompleto.nombreUsuario || "");
             setEdad(usuarioCompleto.edad ? String(usuarioCompleto.edad) : "");
-            setUbicacionAproximada(usuarioCompleto.ubicacionAproximada || "");
+            setUbicacionAproximada(
+                obtenerUbicacionTexto(usuarioCompleto.ubicacionAproximada)
+            );
             setBio(usuarioCompleto.bio || "");
             setInstagram(usuarioCompleto.instagram || "");
             setFotoPerfil(usuarioCompleto.fotoPerfil || "");
+            setFotoPerfilMini(usuarioCompleto.fotoPerfilMini || "");
+            setFotoPerfilOriginal(usuarioCompleto.fotoPerfil || "");
             setIntereses(usuarioCompleto.intereses || []);
 
             const responseIntereses = await fetch(`${API_URL}/api/intereses`);
@@ -169,11 +225,24 @@ export default function EditProfileScreen() {
                 return;
             }
 
-            const fotoBase64 = await comprimirFotoPerfil(imagen.uri);
+            setProcesandoFoto(true);
+            const [fotoBase64, fotoMiniBase64] = await Promise.all([
+                comprimirFotoPerfil(imagen.uri),
+                comprimirFotoPerfilMini(imagen.uri),
+            ]);
+
+            if (fotoBase64.length > FOTO_PERFIL_MAX_BASE64_LENGTH) {
+                alert("La imagen sigue siendo muy pesada. Probá con otra foto.");
+                return;
+            }
+
             setFotoPerfil(fotoBase64);
+            setFotoPerfilMini(fotoMiniBase64);
         } catch (error) {
             console.log("Error al elegir foto:", error);
-            alert("No se pudo seleccionar la foto.");
+            alert("No se pudo comprimir esa foto. Probá con otra imagen.");
+        } finally {
+            setProcesandoFoto(false);
         }
     };
 
@@ -184,23 +253,34 @@ export default function EditProfileScreen() {
                 return;
             }
 
+            if (procesandoFoto) {
+                alert("Esperá a que termine de procesarse la foto.");
+                return;
+            }
+
             setGuardando(true);
+
+            const datosPerfil: Record<string, unknown> = {
+                nombre: nombre.trim(),
+                nombreUsuario: nombreUsuario.trim(),
+                edad: edad ? Number(edad) : undefined,
+                ubicacionAproximada: ubicacionAproximada.trim(),
+                bio: bio.trim(),
+                instagram: instagram.trim(),
+                intereses,
+            };
+
+            if (fotoPerfil !== fotoPerfilOriginal) {
+                datosPerfil.fotoPerfil = fotoPerfil;
+                datosPerfil.fotoPerfilMini = fotoPerfilMini || fotoPerfil;
+            }
 
             const response = await fetch(`${API_URL}/api/usuarios/${usuarioId}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({
-                    nombre: nombre.trim(),
-                    nombreUsuario: nombreUsuario.trim(),
-                    edad: edad ? Number(edad) : undefined,
-                    ubicacionAproximada: ubicacionAproximada.trim(),
-                    bio: bio.trim(),
-                    instagram: instagram.trim(),
-                    fotoPerfil,
-                    intereses,
-                }),
+                body: JSON.stringify(datosPerfil),
             });
 
             const data = await response.json();
@@ -211,6 +291,8 @@ export default function EditProfileScreen() {
             }
 
             await AsyncStorage.setItem("usuario", JSON.stringify(data.usuario));
+            setFotoPerfilOriginal(data.usuario?.fotoPerfil || "");
+            invalidateSocialCaches(usuarioId);
 
             alert("Perfil actualizado correctamente.");
             router.back();
@@ -248,7 +330,11 @@ export default function EditProfileScreen() {
                 </Text>
 
                 <View style={styles.photoSection}>
-                    <TouchableOpacity activeOpacity={0.85} onPress={elegirFoto}>
+                    <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={elegirFoto}
+                        disabled={procesandoFoto}
+                    >
                         {fotoPerfil ? (
                             <Image source={{ uri: fotoPerfil }} style={styles.profileImage} />
                         ) : (
@@ -264,11 +350,17 @@ export default function EditProfileScreen() {
                         )}
 
                         <View style={styles.cameraButton}>
-                            <Camera size={18} color="#FFFFFF" />
+                            {procesandoFoto ? (
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                                <Camera size={18} color="#FFFFFF" />
+                            )}
                         </View>
                     </TouchableOpacity>
 
-                    <Text style={styles.photoText}>Cambiar foto</Text>
+                    <Text style={styles.photoText}>
+                        {procesandoFoto ? "Comprimiendo foto..." : "Cambiar foto"}
+                    </Text>
                 </View>
 
                 <View style={styles.formCard}>

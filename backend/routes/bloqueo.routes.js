@@ -103,7 +103,7 @@ router.get("/usuario/:usuarioId", async (req, res) => {
       bloqueadorId: req.params.usuarioId,
     }).populate(
       "bloqueadoId",
-      "nombre email nombreUsuario"
+      "nombre email nombreUsuario fotoPerfilMini"
     ).lean();
 
     res.json({

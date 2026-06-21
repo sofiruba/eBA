@@ -9,6 +9,7 @@ export type Usuario = {
   bio?: string;
   instagram?: string;
   fotoPerfil?: string;
+  fotoPerfilMini?: string;
   intereses?: string[];
   emailVerificado?: boolean;
   esOrganizador?: boolean;

@@ -8,7 +8,7 @@ const Usuario = require("../models/Usuario");
 const Chat = require("../models/Chat");
 
 const camposUsuarioSolicitud =
-  "nombre nombreUsuario email intereses bio ubicacionAproximada";
+  "nombre nombreUsuario email fotoPerfilMini intereses bio ubicacionAproximada";
 
 const obtenerIdUsuario = (usuario) => {
   if (!usuario) return null;

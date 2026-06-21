@@ -102,7 +102,7 @@ router.put("/:id", async (req, res) => {
     const reporte = await Reporte.findByIdAndUpdate(
       req.params.id,
       { estado: req.body.estado },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!reporte) {

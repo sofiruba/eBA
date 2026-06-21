@@ -14,10 +14,12 @@ export default function UserAvatar({ usuario, size = 42 }: UserAvatarProps) {
 
   const avatarTextSize = Math.max(14, Math.round(size * 0.42));
 
-  if (usuario?.fotoPerfil) {
+  const fotoPerfil = usuario?.fotoPerfilMini || usuario?.fotoPerfil;
+
+  if (fotoPerfil) {
     return (
       <Image
-        source={{ uri: usuario.fotoPerfil }}
+        source={{ uri: fotoPerfil }}
         style={{
           width: size,
           height: size,

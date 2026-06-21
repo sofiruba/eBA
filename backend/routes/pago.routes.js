@@ -114,7 +114,7 @@ router.put("/:id", async (req, res) => {
         estado: req.body.estado,
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     );
 

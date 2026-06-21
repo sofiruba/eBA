@@ -36,6 +36,9 @@ const usuarioSchema = new mongoose.Schema(
     fotoPerfil: {
       type: String,
     },
+    fotoPerfilMini: {
+      type: String,
+    },
     intereses: {
       type: [String],
       default: [],

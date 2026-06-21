@@ -106,8 +106,8 @@ router.get("/usuario/:usuarioId", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const notificacion = await Notificacion.findById(req.params.id)
-      .populate("usuarioId", "nombre email")
-      .populate("actorId", "nombre nombreUsuario");
+      .populate("usuarioId", "nombre email fotoPerfilMini")
+      .populate("actorId", "nombre nombreUsuario fotoPerfilMini");
 
     if (!notificacion) {
       return res.status(404).json({
@@ -133,7 +133,7 @@ router.put("/:id/leida", async (req, res) => {
     const notificacion = await Notificacion.findByIdAndUpdate(
       req.params.id,
       { leida: true },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!notificacion) {

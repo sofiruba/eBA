@@ -74,7 +74,7 @@ router.put("/:id", async (req, res) => {
     const plan = await PlanPromocion.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!plan) {

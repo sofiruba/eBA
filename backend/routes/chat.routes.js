@@ -23,8 +23,8 @@ const filtroConexionesUsuario = (usuarioId) => ({
 });
 
 const camposUsuarioConexion =
-  "nombre nombreUsuario email intereses bio ubicacionAproximada";
-const camposParticipanteChat = "nombre nombreUsuario email";
+  "nombre nombreUsuario email fotoPerfilMini intereses bio ubicacionAproximada";
+const camposParticipanteChat = "nombre nombreUsuario email fotoPerfilMini";
 
 const poblarUsuariosConexion = (query) =>
   query
@@ -439,7 +439,7 @@ router.post("/:id/salir", async (req, res) => {
     const chatActualizado = await Chat.findByIdAndUpdate(
       req.params.id,
       { $pull: { participantes: usuarioId } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!chatActualizado) {

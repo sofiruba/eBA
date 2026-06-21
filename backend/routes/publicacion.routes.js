@@ -6,7 +6,7 @@ const Comentario = require("../models/Comentario");
 const Evento = require("../models/Evento");
 const Bloqueo = require("../models/Bloqueo");
 
-const camposUsuarioPublicacion = "nombre nombreUsuario email intereses bio";
+const camposUsuarioPublicacion = "nombre nombreUsuario email fotoPerfilMini intereses bio";
 
 const eventoFinalizado = (evento) => {
   if (!evento?.fecha) return false;
@@ -283,7 +283,7 @@ router.put("/:id", async (req, res) => {
         contenido: req.body.contenido,
         imagen: req.body.imagen,
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!publicacion) {
@@ -335,7 +335,7 @@ router.put("/:id", async (req, res) => {
     await publicacion.save();
 
     const publicacionActualizada = await Publicacion.findById(id)
-      .populate("usuarioId", "nombre nombreUsuario email fotoPerfil intereses bio")
+      .populate("usuarioId", "nombre nombreUsuario email fotoPerfilMini intereses bio")
       .populate("eventoId");
 
     return res.json({

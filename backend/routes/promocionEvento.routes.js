@@ -156,7 +156,7 @@ router.put("/:id", async (req, res) => {
     const promocion = await PromocionEvento.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!promocion) {

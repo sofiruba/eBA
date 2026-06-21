@@ -46,7 +46,7 @@ const filtroConexionesUsuario = (usuarioId) => ({
 });
 
 const camposUsuarioConexion =
-  "nombre nombreUsuario email intereses bio ubicacionAproximada";
+  "nombre nombreUsuario email fotoPerfilMini intereses bio ubicacionAproximada";
 
 const poblarUsuariosConexion = (query) =>
   query
@@ -291,7 +291,7 @@ router.get("/resumen/:eventoId/usuario/:usuarioId", async (req, res) => {
           ? Asistencia.find({ eventoId })
               .populate(
                 "usuarioId",
-                "nombre nombreUsuario email intereses bio ubicacionAproximada"
+                "nombre nombreUsuario email fotoPerfilMini intereses bio ubicacionAproximada"
               )
               .lean()
           : [],

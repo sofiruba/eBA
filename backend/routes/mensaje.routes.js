@@ -105,7 +105,7 @@ router.post("/", async (req, res) => {
       select: "contenido usuarioEmisorId eliminado",
       populate: {
         path: "usuarioEmisorId",
-        select: "nombre nombreUsuario",
+        select: "nombre nombreUsuario fotoPerfilMini",
       },
     });
 
@@ -166,13 +166,13 @@ router.post("/", async (req, res) => {
 router.get("/chat/:chatId", async (req, res) => {
   try {
     const mensajes = await Mensaje.find({ chatId: req.params.chatId })
-      .populate("usuarioEmisorId", "nombre nombreUsuario email")
+      .populate("usuarioEmisorId", "nombre nombreUsuario email fotoPerfilMini")
       .populate({
         path: "mensajePadreId",
         select: "contenido usuarioEmisorId eliminado",
         populate: {
           path: "usuarioEmisorId",
-          select: "nombre nombreUsuario",
+          select: "nombre nombreUsuario fotoPerfilMini",
         },
       })
       .sort({ fechaEnvio: 1 })
@@ -189,7 +189,7 @@ router.put("/:id/leido", async (req, res) => {
     const mensaje = await Mensaje.findByIdAndUpdate(
       req.params.id,
       { leido: true },
-      { new: true }
+      { returnDocument: "after" }
     );
     if (!mensaje) return res.status(404).json({ error: "Mensaje no encontrado" });
     res.json({ message: "Mensaje marcado como leído", mensaje });

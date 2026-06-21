@@ -7,7 +7,7 @@ const Publicacion = require("../models/Publicacion");
 const Usuario = require("../models/Usuario");
 const Bloqueo = require("../models/Bloqueo");
 
-const camposUsuarioComentario = "nombre nombreUsuario email intereses bio";
+const camposUsuarioComentario = "nombre nombreUsuario email fotoPerfilMini intereses bio";
 
 const obtenerIdsBloqueados = async (usuarioId) => {
   if (!usuarioId) return new Set();
@@ -199,7 +199,7 @@ router.put("/:id", async (req, res) => {
       {
         contenido: req.body.contenido,
       },
-      { new: true }
+      { returnDocument: "after" }
     ).populate("usuarioId", camposUsuarioComentario);
 
     if (!comentario) {

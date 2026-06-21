@@ -33,6 +33,7 @@ const generarCodigo = () => {
 };
 
 const FOTO_PERFIL_MAX_LENGTH = 750000;
+const FOTO_PERFIL_MINI_MAX_LENGTH = 180000;
 
 const normalizarNombreUsuario = (valor) => {
   if (!valor) return "";
@@ -120,7 +121,10 @@ const armarUsuarioRespuesta = (usuario, opciones = {}) => {
     ubicacionAproximada: usuario.ubicacionAproximada,
     bio: usuario.bio,
     instagram: usuario.instagram,
-    fotoPerfil: incluirFotoPerfil ? usuario.fotoPerfil : "",
+    fotoPerfil: incluirFotoPerfil
+      ? usuario.fotoPerfilMini || usuario.fotoPerfil || ""
+      : "",
+    fotoPerfilMini: usuario.fotoPerfilMini || "",
     intereses: usuario.intereses,
     emailVerificado: usuario.emailVerificado,
     esOrganizador: usuario.esOrganizador,
@@ -254,7 +258,7 @@ router.post("/auth/google/token", async (req, res) => {
 
     let usuario = await Usuario.findOne({
       $or: [{ googleId: perfil.sub }, { email: emailGoogle }],
-    }).select("-fotoPerfil");
+    });
 
     let esNuevo = false;
 
@@ -304,7 +308,7 @@ router.post("/auth/google/token", async (req, res) => {
 
     return res.json({
       message: "Login con Google correcto",
-      usuario: armarUsuarioRespuesta(usuario, { incluirFotoPerfil: false }),
+      usuario: armarUsuarioRespuesta(usuario),
       esNuevo,
     });
   } catch (error) {
@@ -351,6 +355,7 @@ router.post("/registro", async (req, res) => {
       bio,
       instagram,
       fotoPerfil,
+      fotoPerfilMini,
       intereses,
       esOrganizador,
     } = req.body;
@@ -410,6 +415,7 @@ router.post("/registro", async (req, res) => {
       bio,
       instagram,
       fotoPerfil,
+      fotoPerfilMini,
       intereses,
       esOrganizador: esOrganizador || false,
       emailVerificado: false,
@@ -534,7 +540,7 @@ router.post("/login", async (req, res) => {
 
     return res.json({
       message: "Login correcto",
-      usuario: armarUsuarioRespuesta(usuario, { incluirFotoPerfil: false }),
+      usuario: armarUsuarioRespuesta(usuario),
     });
   } catch (error) {
     return res.status(500).json({
@@ -719,6 +725,7 @@ router.put("/:id", async (req, res) => {
       bio,
       instagram,
       fotoPerfil,
+      fotoPerfilMini,
       intereses,
     } = req.body;
 
@@ -762,16 +769,34 @@ router.put("/:id", async (req, res) => {
     if (instagram !== undefined) datosActualizados.instagram = instagram;
     if (fotoPerfil !== undefined) {
       if (
-        typeof fotoPerfil === "string" &&
-        fotoPerfil.startsWith("data:image") &&
-        fotoPerfil.length > FOTO_PERFIL_MAX_LENGTH
+        typeof fotoPerfilMini === "string" &&
+        fotoPerfilMini.startsWith("data:image") &&
+        fotoPerfilMini.length > FOTO_PERFIL_MINI_MAX_LENGTH
       ) {
         return res.status(413).json({
           error: "La foto de perfil es demasiado grande. Probá con otra imagen.",
         });
       }
 
-      datosActualizados.fotoPerfil = fotoPerfil;
+      if (
+        typeof fotoPerfil === "string" &&
+        fotoPerfil.startsWith("data:image") &&
+        fotoPerfil.length > FOTO_PERFIL_MAX_LENGTH
+      ) {
+        if (!fotoPerfilMini) {
+          return res.status(413).json({
+            error: "La foto de perfil es demasiado grande. Probá con otra imagen.",
+          });
+        }
+
+        datosActualizados.fotoPerfil = fotoPerfilMini;
+        datosActualizados.fotoPerfilMini = fotoPerfilMini;
+      } else {
+        datosActualizados.fotoPerfil = fotoPerfil;
+        datosActualizados.fotoPerfilMini = fotoPerfilMini || fotoPerfil;
+      }
+    } else if (fotoPerfilMini !== undefined) {
+      datosActualizados.fotoPerfilMini = fotoPerfilMini;
     }
     if (intereses !== undefined) datosActualizados.intereses = intereses;
 
@@ -779,7 +804,7 @@ router.put("/:id", async (req, res) => {
       req.params.id,
       datosActualizados,
       {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       }
     ).select("-contrasenia");
@@ -817,7 +842,7 @@ router.put("/:id/organizador", async (req, res) => {
         esOrganizador: true,
       },
       {
-        new: true,
+        returnDocument: "after",
       }
     ).select("-contrasenia");
 
@@ -1070,7 +1095,7 @@ router.get("/perfil-resumen/:usuarioId", async (req, res) => {
 
     const usuario = await Usuario.findById(usuarioId)
       .select(
-        "nombre email edad ubicacionAproximada bio instagram intereses emailVerificado esOrganizador nombreUsuario createdAt updatedAt"
+        "nombre email edad ubicacionAproximada bio instagram fotoPerfilMini intereses emailVerificado esOrganizador nombreUsuario createdAt updatedAt"
       )
       .lean();
 
@@ -1104,7 +1129,7 @@ router.get("/perfil-resumen/:usuarioId", async (req, res) => {
           : [],
         Publicacion
           ? Publicacion.find({ usuarioId })
-              .populate("usuarioId", "nombre nombreUsuario email intereses bio")
+              .populate("usuarioId", "nombre nombreUsuario email fotoPerfilMini intereses bio")
               .populate("eventoId", "nombre fecha categoria imagen ubicacion organizador")
               .sort({ createdAt: -1 })
               .limit(10)
@@ -1112,7 +1137,7 @@ router.get("/perfil-resumen/:usuarioId", async (req, res) => {
           : [],
         Bloqueo
           ? Bloqueo.find({ bloqueadorId: usuarioId })
-              .populate("bloqueadoId", "nombre email")
+              .populate("bloqueadoId", "nombre email nombreUsuario fotoPerfilMini")
               .sort({ updatedAt: -1 })
               .lean()
           : [],
@@ -1168,7 +1193,9 @@ router.get("/perfil-resumen/:usuarioId", async (req, res) => {
 // GET /api/usuarios/:id
 router.get("/:id", async (req, res) => {
   try {
-    const usuario = await Usuario.findById(req.params.id).select("-contrasenia");
+    const usuario = await Usuario.findById(req.params.id).select(
+      "-contrasenia -fotoPerfil"
+    );
 
     if (!usuario) {
       return res.status(404).json({
@@ -1183,7 +1210,7 @@ router.get("/:id", async (req, res) => {
 
     return res.json({
       message: "Usuario obtenido correctamente",
-      usuario,
+      usuario: armarUsuarioRespuesta(usuario),
     });
   } catch (error) {
     return res.status(500).json({

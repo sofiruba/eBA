@@ -117,7 +117,7 @@ router.get("/evento/:eventoId", async (req, res) => {
     const asistencias = await Asistencia.find({ eventoId: req.params.eventoId })
       .populate(
         "usuarioId",
-        "nombre nombreUsuario email fotoPerfil intereses bio ubicacionAproximada"
+        "nombre nombreUsuario email fotoPerfilMini intereses bio ubicacionAproximada"
       )
       .lean();
 
@@ -139,7 +139,7 @@ router.put("/:id", async (req, res) => {
     const asistencia = await Asistencia.findByIdAndUpdate(
       req.params.id,
       { estado: req.body.estado },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!asistencia) {
