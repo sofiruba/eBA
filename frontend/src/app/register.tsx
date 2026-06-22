@@ -222,7 +222,7 @@ export default function RegisterScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>Nombre de usuario</Text>
           <TextInput
-            placeholder="sofi.ba"
+            placeholder="Nombre de usuario"
             placeholderTextColor="#A8A5B3"
             style={[
               styles.input,
@@ -279,7 +279,7 @@ export default function RegisterScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>Nombre</Text>
           <TextInput
-            placeholder="Sofi"
+            placeholder="Nombre"
             placeholderTextColor="#A8A5B3"
             style={styles.input}
             value={nombre}
@@ -290,7 +290,7 @@ export default function RegisterScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>Email</Text>
           <TextInput
-            placeholder="sofi2@test.com"
+            placeholder="Email"
             placeholderTextColor="#A8A5B3"
             style={styles.input}
             value={email}
@@ -305,7 +305,7 @@ export default function RegisterScreen() {
 
           <View style={styles.passwordBox}>
             <TextInput
-              placeholder="123456"
+              placeholder="Contraseña"
               placeholderTextColor="#A8A5B3"
               secureTextEntry={!mostrarContrasenia}
               style={styles.passwordInput}
@@ -329,7 +329,7 @@ export default function RegisterScreen() {
         <View style={styles.field}>
           <Text style={styles.label}>Edad</Text>
           <TextInput
-            placeholder="21"
+            placeholder="Edad"
             placeholderTextColor="#A8A5B3"
             style={styles.input}
             value={edad}

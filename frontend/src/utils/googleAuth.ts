@@ -1,8 +1,8 @@
 // src/utils/googleAuth.ts
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
+import { API_URL } from "../config/api";
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 export const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
 export const GOOGLE_IOS_CLIENT_ID_CONFIGURED =
   process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;

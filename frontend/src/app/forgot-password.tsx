@@ -155,7 +155,7 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
           <Text style={styles.label}>Email</Text>
 
           <TextInput
-            placeholder="sofi2@test.com"
+            placeholder="Email"
             placeholderTextColor="#A8A5B3"
             style={styles.input}
             value={email}

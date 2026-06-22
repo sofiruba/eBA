@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { Ticket, Users } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -14,9 +14,11 @@ import Logo from "../components/Logo";
 import { Asistencia } from "../types/Asistencia";
 import { Evento } from "../types/Evento";
 import { eventoYaPaso } from "../utils/eventHelpers";
+import { invalidateEventCaches } from "../utils/cache";
 
 export default function FavoritesScreen() {
   const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
+  const [usuarioIdActual, setUsuarioIdActual] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +40,7 @@ export default function FavoritesScreen() {
 
       const usuario = JSON.parse(usuarioGuardado);
       const usuarioId = usuario.id || usuario._id;
+      setUsuarioIdActual(usuarioId || null);
 
       if (!usuarioId) {
         alert("No se encontró el usuario logueado.");
@@ -89,6 +92,7 @@ export default function FavoritesScreen() {
       setAsistencias((prev) =>
         prev.filter((asistencia) => asistencia._id !== asistenciaId)
       );
+      invalidateEventCaches(null, usuarioIdActual);
     } catch (error) {
       console.log("Error al sacar evento:", error);
       alert("No se pudo conectar con el servidor.");

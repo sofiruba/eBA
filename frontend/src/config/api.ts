@@ -1,4 +1,4 @@
 
 // % ipconfig getifaddr en0
 export const API_URL =
-  process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.47:3000";
+  process.env.EXPO_PUBLIC_API_URL || "https://e-ba.vercel.app";

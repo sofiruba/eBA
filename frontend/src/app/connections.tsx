@@ -486,7 +486,7 @@ export default function ConnectionsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
       >
-        <Logo size="medium" />
+        <Logo size="medium" centered={false} />
 
         <Text style={styles.title}>Conexiones</Text>
 

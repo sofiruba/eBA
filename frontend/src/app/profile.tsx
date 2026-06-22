@@ -290,6 +290,29 @@ export default function ProfileScreen() {
     }
   };
 
+  const sacarDeMisEventos = async (asistenciaId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/asistencias/${asistenciaId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "No se pudo sacar el evento de interesados.");
+        return;
+      }
+
+      setAsistencias((prev) =>
+        prev.filter((asistencia) => asistencia._id !== asistenciaId)
+      );
+      invalidateEventCaches(null, obtenerUsuarioId(usuario));
+    } catch (error) {
+      console.log("Error eliminando asistencia:", error);
+      alert("No se pudo conectar con el servidor.");
+    }
+  };
+
   const eventosActivos = asistencias.filter(
     (asistencia) => asistencia.estado !== "cancelado"
   );
@@ -344,7 +367,7 @@ export default function ProfileScreen() {
         <View style={styles.profileStats}>
           <View style={styles.profileStatItem}>
             <Text style={styles.profileStatNumber}>{eventosActivos.length}</Text>
-            <Text style={styles.profileStatLabel}>asistidos</Text>
+            <Text style={styles.profileStatLabel}>interesados</Text>
           </View>
 
           <View style={styles.profileStatDivider} />
@@ -375,7 +398,7 @@ export default function ProfileScreen() {
                 tabActiva === "asistidos" && styles.profileTabTextActive,
               ]}
             >
-              Asistidos
+              Interesados
             </Text>
           </TouchableOpacity>
 
@@ -435,6 +458,8 @@ export default function ProfileScreen() {
                     key={asistencia._id}
                     evento={evento}
                     status={obtenerEstadoEvento(evento, asistencia.estado)}
+                    showRemove
+                    onRemovePress={() => sacarDeMisEventos(asistencia._id)}
                     onPress={() => irAEvento(evento._id)}
                   />
                 );

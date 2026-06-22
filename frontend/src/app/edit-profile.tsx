@@ -10,7 +10,7 @@ import {
     ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
-import { ArrowLeft, Camera } from "lucide-react-native";
+import { ArrowLeft, Camera, X } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -197,6 +197,15 @@ export default function EditProfileScreen() {
 
             return [...prev, slug];
         });
+    };
+
+    const eliminarInteres = (slug: string) => {
+        setIntereses((prev) => prev.filter((item) => item !== slug));
+    };
+
+    const obtenerNombreInteres = (slug: string) => {
+        const interes = interesesDisponibles.find((item) => item.slug === slug);
+        return interes?.nombre || slug;
     };
 
     const elegirFoto = async () => {
@@ -433,6 +442,24 @@ export default function EditProfileScreen() {
                                 Elegí lo que querés usar para recomendaciones y conexiones.
                             </Text>
 
+                            {intereses.length > 0 && (
+                                <View style={styles.selectedInterests}>
+                                    {intereses.map((slug) => (
+                                        <TouchableOpacity
+                                            key={slug}
+                                            style={styles.selectedChip}
+                                            activeOpacity={0.85}
+                                            onPress={() => eliminarInteres(slug)}
+                                        >
+                                            <Text style={styles.selectedChipText}>
+                                                {obtenerNombreInteres(slug)}
+                                            </Text>
+                                            <X size={14} color="#FFFFFF" strokeWidth={3} />
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+
                             <View style={styles.interestsContainer}>
                                 <InterestChips
                                     intereses={interesesDisponibles}
@@ -568,6 +595,27 @@ const styles = StyleSheet.create({
         fontSize: 12,
         lineHeight: 18,
         marginBottom: 12,
+    },
+    selectedInterests: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        marginBottom: 12,
+    },
+    selectedChip: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 18,
+        backgroundColor: "#7528F0",
+        marginRight: 8,
+        marginBottom: 8,
+    },
+    selectedChipText: {
+        color: "#FFFFFF",
+        fontSize: 13,
+        fontWeight: "900",
     },
     interestsContainer: {
         flexDirection: "row",

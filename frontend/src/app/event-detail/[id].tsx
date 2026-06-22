@@ -38,6 +38,7 @@ export default function EventDetail() {
   const [eventData, setEventData] = useState<Evento | null>(null);
   const [loading, setLoading] = useState(true);
   const [registrando, setRegistrando] = useState(false);
+  const [asistenciaId, setAsistenciaId] = useState<string | null>(null);
   const [favoritoId, setFavoritoId] = useState<string | null>(null);
   const [guardandoFavorito, setGuardandoFavorito] = useState(false);
 
@@ -84,6 +85,7 @@ export default function EventDetail() {
 
       if (usuarioId) {
         cargarFavorito(usuarioId, String(id));
+        cargarAsistencia(usuarioId, String(id));
       }
     } catch (error) {
       console.log("Error al traer detalle:", error);
@@ -109,6 +111,25 @@ export default function EventDetail() {
       setFavoritoId(favorito?._id || null);
     } catch (error) {
       console.log("Error cargando favorito:", error);
+    }
+  };
+
+  const cargarAsistencia = async (usuarioId: string, eventoId: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/asistencias/usuario/${usuarioId}`);
+      const data = await response.json();
+
+      if (!response.ok) return;
+
+      const asistencia = (data.asistencias || []).find((item: any) => {
+        const evento = item.eventoId;
+        const idEvento = typeof evento === "string" ? evento : evento?._id;
+        return idEvento === eventoId && item.estado !== "cancelado";
+      });
+
+      setAsistenciaId(asistencia?._id || null);
+    } catch (error) {
+      console.log("Error cargando asistencia:", error);
     }
   };
 
@@ -174,7 +195,7 @@ export default function EventDetail() {
     }
   };
 
-  const registrarAsistencia = async () => {
+  const toggleAsistencia = async () => {
     try {
       if (registrando) return;
 
@@ -205,6 +226,22 @@ export default function EventDetail() {
         return;
       }
 
+      if (asistenciaId) {
+        const response = await fetch(`${API_URL}/api/asistencias/${asistenciaId}`, {
+          method: "DELETE",
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          alert(data.error || "No se pudo sacar el evento de interesados.");
+          return;
+        }
+
+        setAsistenciaId(null);
+        invalidateEventCaches(eventData._id, usuarioId);
+        return;
+      }
+
       const response = await fetch(`${API_URL}/api/asistencias`, {
         method: "POST",
         headers: {
@@ -224,6 +261,7 @@ export default function EventDetail() {
         return;
       }
 
+      setAsistenciaId(data.asistencia?._id || null);
       invalidateEventCaches(eventData._id, usuarioId);
       router.replace(`/event-people/${eventData._id}?returnToHome=1` as any);
     } catch (error) {
@@ -349,14 +387,21 @@ export default function EventDetail() {
             <TouchableOpacity
               style={[
                 styles.mainButton,
+                asistenciaId && styles.mainButtonRemove,
                 registrando && styles.mainButtonDisabled,
               ]}
               activeOpacity={0.85}
-              onPress={registrarAsistencia}
+              onPress={toggleAsistencia}
               disabled={registrando}
             >
               <Text style={styles.mainButtonText}>
-                {registrando ? "Registrando..." : "Quiero ir"}
+                {registrando
+                  ? asistenciaId
+                    ? "Sacando..."
+                    : "Registrando..."
+                  : asistenciaId
+                    ? "Ya no quiero ir"
+                    : "Quiero ir"}
               </Text>
             </TouchableOpacity>
           ) : (
@@ -525,6 +570,9 @@ const styles = StyleSheet.create({
   },
   mainButtonDisabled: {
     opacity: 0.7,
+  },
+  mainButtonRemove: {
+    backgroundColor: "#EF4444",
   },
   finishedButton: {
     backgroundColor: "#ECE8F4",
