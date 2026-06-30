@@ -13,11 +13,15 @@ import { EyeOff, Eye } from "lucide-react-native";
 import { API_URL } from "../config/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Logo from "@/components/Logo";
+import {
+  validarContrasenia,
+  CONTRASENIA_EJEMPLO,
+} from "@/utils/passwordValidation";
 export default function RegisterScreen() {
   const params = useLocalSearchParams();
-
+ 
   let intereses: string[] = [];
-
+ 
   try {
     intereses = params.intereses
       ? JSON.parse(params.intereses as string)
@@ -25,7 +29,7 @@ export default function RegisterScreen() {
   } catch (error) {
     intereses = [];
   }
-
+ 
   const [nombre, setNombre] = useState("");
   const [nombreUsuario, setNombreUsuario] = useState("");
   const [estadoNombreUsuario, setEstadoNombreUsuario] = useState<
@@ -37,16 +41,16 @@ export default function RegisterScreen() {
   const [edad, setEdad] = useState("");
   const [loading, setLoading] = useState(false);
   const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
-
+ 
   const verificarNombreUsuario = async (valor = nombreUsuario) => {
     const nombreUsuarioLimpio = valor.trim();
-
+ 
     if (!nombreUsuarioLimpio) {
       setEstadoNombreUsuario("idle");
       setSugerenciasUsuario([]);
       return false;
     }
-
+ 
     try {
       setEstadoNombreUsuario("checking");
       const response = await fetch(
@@ -55,17 +59,17 @@ export default function RegisterScreen() {
         )}`
       );
       const data = await response.json();
-
+ 
       if (!response.ok) {
         setEstadoNombreUsuario("idle");
         setSugerenciasUsuario(data.sugerencias || []);
         return null;
       }
-
+ 
       setNombreUsuario(data.nombreUsuario || nombreUsuarioLimpio);
       setEstadoNombreUsuario(data.disponible ? "available" : "taken");
       setSugerenciasUsuario(data.sugerencias || []);
-
+ 
       return !!data.disponible;
     } catch (error) {
       setEstadoNombreUsuario("idle");
@@ -73,64 +77,66 @@ export default function RegisterScreen() {
       return null;
     }
   };
-
+ 
   const handleRegister = async () => {
     if (intereses.length === 0) {
       alert("Tenés que seleccionar al menos un interés.");
       return;
     }
-
+ 
     if (!nombre.trim()) {
       alert("Ingresá tu nombre.");
       return;
     }
-
+ 
     if (!nombreUsuario.trim()) {
       alert("Ingresá un nombre de usuario.");
       return;
     }
-
+ 
     const nombreUsuarioDisponible = await verificarNombreUsuario();
-
+ 
     if (nombreUsuarioDisponible === false) {
       alert("Ese nombre de usuario no está disponible. Elegí una sugerencia.");
       return;
     }
-
+ 
     if (!email.trim()) {
       alert("Ingresá tu email.");
       return;
     }
-
+ 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
+ 
     if (!emailRegex.test(email.trim())) {
       alert("Ingresá un email válido.");
       return;
     }
-
+ 
     if (!contrasenia.trim()) {
       alert("Ingresá una contraseña.");
       return;
     }
-
-    if (contrasenia.length < 6) {
-      alert("La contraseña debe tener al menos 6 caracteres.");
+ 
+    const errorContrasenia = validarContrasenia(contrasenia);
+ 
+    if (errorContrasenia) {
+      alert(errorContrasenia);
       return;
     }
-
+ 
     if (!edad.trim()) {
       alert("Ingresá tu edad.");
       return;
     }
-
+ 
     const edadNumerica = Number(edad);
-
+ 
     if (isNaN(edadNumerica) || edadNumerica < 13 || edadNumerica > 100) {
       alert("Ingresá una edad válida.");
       return;
     }
-
+ 
     const nuevoUsuario = {
       nombre: nombre.trim(),
       nombreUsuario: nombreUsuario.trim(),
@@ -139,13 +145,13 @@ export default function RegisterScreen() {
       edad: edadNumerica,
       intereses,
     };
-
+ 
     console.log("Enviando usuario:", nuevoUsuario);
     console.log("URL:", `${API_URL}/api/usuarios/registro`);
-
+ 
     try {
       setLoading(true);
-
+ 
       const response = await fetch(`${API_URL}/api/usuarios/registro`, {
         method: "POST",
         headers: {
@@ -153,17 +159,17 @@ export default function RegisterScreen() {
         },
         body: JSON.stringify(nuevoUsuario),
       });
-
+ 
       const data = await response.json();
-
+ 
       console.log("Respuesta del backend:", data);
-
+ 
       if (!response.ok) {
         if (data.sugerencias?.length) {
           setEstadoNombreUsuario("taken");
           setSugerenciasUsuario(data.sugerencias);
         }
-
+ 
         alert(data.message || data.error || "Error al registrar usuario.");
         return;
       }
@@ -171,7 +177,7 @@ export default function RegisterScreen() {
         data.message ||
         "Usuario creado correctamente. Revisá tu email para verificar la cuenta."
       );
-
+ 
       router.replace({
         pathname: "/verify-email",
         params: { email: email.trim().toLowerCase() },
@@ -185,7 +191,7 @@ export default function RegisterScreen() {
       setLoading(false);
     }
   };
-
+ 
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -193,24 +199,24 @@ export default function RegisterScreen() {
         contentContainerStyle={styles.container}
       >
         <Logo size="large" centered={true} showText={true} />
-
-
-
+ 
+ 
+ 
         <Text style={styles.title}>
           Registrate <Text style={styles.dark}>a eBA</Text>
         </Text>
-
+ 
         <Text style={styles.subtitle}>Último paso para empezar a conectar.</Text>
-
+ 
         <View style={styles.selectedBox}>
           <Text style={styles.selectedTitle}>Intereses elegidos</Text>
-
+ 
           <Text style={styles.selectedText}>
             {intereses.length > 0
               ? intereses.join(", ")
               : "No seleccionaste intereses"}
           </Text>
-
+ 
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push("/register-interests" as any)}
@@ -218,7 +224,7 @@ export default function RegisterScreen() {
             <Text style={styles.editInterests}>Editar intereses</Text>
           </TouchableOpacity>
         </View>
-
+ 
         <View style={styles.field}>
           <Text style={styles.label}>Nombre de usuario</Text>
           <TextInput
@@ -240,7 +246,7 @@ export default function RegisterScreen() {
             onBlur={() => verificarNombreUsuario()}
             autoCapitalize="none"
           />
-
+ 
           {estadoNombreUsuario === "checking" && (
             <Text style={styles.usernameHint}>Verificando usuario...</Text>
           )}
@@ -275,7 +281,7 @@ export default function RegisterScreen() {
             </View>
           )}
         </View>
-
+ 
         <View style={styles.field}>
           <Text style={styles.label}>Nombre</Text>
           <TextInput
@@ -286,7 +292,7 @@ export default function RegisterScreen() {
             onChangeText={setNombre}
           />
         </View>
-
+ 
         <View style={styles.field}>
           <Text style={styles.label}>Email</Text>
           <TextInput
@@ -299,20 +305,20 @@ export default function RegisterScreen() {
             autoCapitalize="none"
           />
         </View>
-
+ 
         <View style={styles.field}>
           <Text style={styles.label}>Contraseña</Text>
-
+ 
           <View style={styles.passwordBox}>
             <TextInput
-              placeholder="Contraseña"
+              placeholder={`Ej: ${CONTRASENIA_EJEMPLO}`}
               placeholderTextColor="#A8A5B3"
               secureTextEntry={!mostrarContrasenia}
               style={styles.passwordInput}
               value={contrasenia}
               onChangeText={setContrasenia}
             />
-
+ 
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => setMostrarContrasenia(!mostrarContrasenia)}
@@ -325,7 +331,7 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
+ 
         <View style={styles.field}>
           <Text style={styles.label}>Edad</Text>
           <TextInput
@@ -337,7 +343,7 @@ export default function RegisterScreen() {
             keyboardType="numeric"
           />
         </View>
-
+ 
         <TouchableOpacity
           style={[styles.primaryButton, loading && styles.disabledButton]}
           activeOpacity={0.85}
@@ -348,10 +354,10 @@ export default function RegisterScreen() {
             {loading ? "Creando cuenta..." : "Crear cuenta"}
           </Text>
         </TouchableOpacity>
-
+ 
         <View style={styles.loginRow}>
           <Text style={styles.smallText}>¿Ya tenés cuenta? </Text>
-
+ 
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push("/login" as any)}
@@ -363,7 +369,7 @@ export default function RegisterScreen() {
     </View>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,

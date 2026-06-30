@@ -1,5 +1,5 @@
 import { useState } from "react";
-
+ 
 import {
   View,
   Text,
@@ -10,10 +10,14 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { EyeOff, MailCheck, ArrowLeft, Eye } from "lucide-react-native";
-
+ 
 import { API_URL } from "../config/api";
 import Logo from "@/components/Logo";
-
+import {
+  validarContrasenia,
+  CONTRASENIA_EJEMPLO,
+} from "@/utils/passwordValidation";
+ 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
   const [codigo, setCodigo] = useState("");
@@ -26,17 +30,17 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
       alert("Ingresá tu email.");
       return;
     }
-
+ 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
+ 
     if (!emailRegex.test(email.trim())) {
       alert("Ingresá un email válido.");
       return;
     }
-
+ 
     try {
       setLoading(true);
-
+ 
       const response = await fetch(
         `${API_URL}/api/usuarios/recuperar-contrasenia`,
         {
@@ -49,16 +53,16 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
           }),
         }
       );
-
+ 
       const data = await response.json();
-
+ 
       console.log("Respuesta recuperar contraseña:", data);
-
+ 
       if (!response.ok) {
         alert(data.message || data.error || "No se pudo enviar el código.");
         return;
       }
-
+ 
       alert(data.message || "Te enviamos un código a tu email.");
       setCodigoEnviado(true);
     } catch (error) {
@@ -68,31 +72,33 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
       setLoading(false);
     }
   };
-
+ 
   const cambiarContrasenia = async () => {
     if (!codigo.trim()) {
       alert("Ingresá el código recibido por email.");
       return;
     }
-
+ 
     if (codigo.trim().length !== 6) {
       alert("El código debe tener 6 dígitos.");
       return;
     }
-
+ 
     if (!nuevaContrasenia.trim()) {
       alert("Ingresá tu nueva contraseña.");
       return;
     }
-
-    if (nuevaContrasenia.length < 6) {
-      alert("La contraseña debe tener al menos 6 caracteres.");
+ 
+    const errorContrasenia = validarContrasenia(nuevaContrasenia);
+ 
+    if (errorContrasenia) {
+      alert(errorContrasenia);
       return;
     }
-
+ 
     try {
       setLoading(true);
-
+ 
       const response = await fetch(
         `${API_URL}/api/usuarios/cambiar-contrasenia`,
         {
@@ -107,16 +113,16 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
           }),
         }
       );
-
+ 
       const data = await response.json();
-
+ 
       console.log("Respuesta restablecer contraseña:", data);
-
+ 
       if (!response.ok) {
         alert(data.message || data.error || "No se pudo cambiar la contraseña.");
         return;
       }
-
+ 
       alert(data.message || "Contraseña actualizada correctamente.");
       router.replace("/login" as any);
     } catch (error) {
@@ -126,7 +132,7 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
       setLoading(false);
     }
   };
-
+ 
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -136,24 +142,24 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft size={22} color="#332047" />
         </TouchableOpacity>
-
+ 
         <Logo size="large" centered={true} showText={true} />
-
+ 
         <View style={styles.iconCircle}>
           <MailCheck size={42} color="#7528F0" />
         </View>
-
+ 
         <Text style={styles.title}>
           Recuperar <Text style={styles.dark}>contraseña</Text>
         </Text>
-
+ 
         <Text style={styles.subtitle}>
           Te vamos a mandar un código por email para que puedas crear una nueva contraseña.
         </Text>
-
+ 
         <View style={styles.field}>
           <Text style={styles.label}>Email</Text>
-
+ 
           <TextInput
             placeholder="Email"
             placeholderTextColor="#A8A5B3"
@@ -165,7 +171,7 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
             editable={!codigoEnviado}
           />
         </View>
-
+ 
         {!codigoEnviado ? (
           <TouchableOpacity
             style={[styles.primaryButton, loading && styles.disabledButton]}
@@ -185,10 +191,10 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
                 Revisá tu email e ingresá el código de 6 dígitos.
               </Text>
             </View>
-
+ 
             <View style={styles.field}>
               <Text style={styles.label}>Código</Text>
-
+ 
               <TextInput
                 placeholder="123456"
                 placeholderTextColor="#A8A5B3"
@@ -199,20 +205,20 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
                 maxLength={6}
               />
             </View>
-
+ 
             <View style={styles.field}>
               <Text style={styles.label}>Nueva contraseña</Text>
-
+ 
               <View style={styles.passwordBox}>
                 <TextInput
-  placeholder="Nueva contraseña"
+  placeholder={`Ej: ${CONTRASENIA_EJEMPLO}`}
   placeholderTextColor="#A8A5B3"
   secureTextEntry={!mostrarContrasenia}
   style={styles.passwordInput}
   value={nuevaContrasenia}
   onChangeText={setNuevaContrasenia}
 />
-
+ 
 <TouchableOpacity
   activeOpacity={0.8}
   onPress={() => setMostrarContrasenia(!mostrarContrasenia)}
@@ -223,11 +229,11 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
     <EyeOff size={18} color="#A8A5B3" />
   )}
 </TouchableOpacity>
-
+ 
                 <EyeOff size={18} color="#A8A5B3" />
               </View>
             </View>
-
+ 
             <TouchableOpacity
               style={[styles.primaryButton, loading && styles.disabledButton]}
               activeOpacity={0.85}
@@ -238,7 +244,7 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
                 {loading ? "Cambiando contraseña..." : "Cambiar contraseña"}
               </Text>
             </TouchableOpacity>
-
+ 
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => {
@@ -251,10 +257,10 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
             </TouchableOpacity>
           </>
         )}
-
+ 
         <View style={styles.loginRow}>
           <Text style={styles.smallText}>¿Te acordaste? </Text>
-
+ 
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push("/login" as any)}
@@ -266,7 +272,7 @@ const [mostrarContrasenia, setMostrarContrasenia] = useState(false);
     </View>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
