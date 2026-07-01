@@ -63,6 +63,10 @@ const usuarioSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    esManager: {
+      type: Boolean,
+      default: false,
+    },
     nombreUsuario: {
       type: String,
       index: {

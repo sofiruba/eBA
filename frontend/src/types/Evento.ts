@@ -4,6 +4,8 @@ export type Ubicacion = {
   direccion?: string;
 };
 
+export type EstadoEvento = "pendiente" | "aprobado" | "rechazado";
+
 export type Evento = {
   _id: string;
   nombre: string;
@@ -14,4 +16,8 @@ export type Evento = {
   imagen?: string;
   organizador?: string;
   esPromocionado?: boolean;
+  activo?: boolean;
+  estado?: EstadoEvento;
+  motivoRechazo?: string;
+  createdAt?: string;
 };

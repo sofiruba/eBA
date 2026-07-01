@@ -13,4 +13,5 @@ export type Usuario = {
   intereses?: string[];
   emailVerificado?: boolean;
   esOrganizador?: boolean;
+  esManager?: boolean;
 };

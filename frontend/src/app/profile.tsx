@@ -27,7 +27,8 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-} from "lucide-react-native";
+  ShieldCheck,
+} from "lucide-react-native"; 
 
 import BottomNav from "../components/BottomNav";
 import LoadingScreen from "../components/LoadingScreen";
@@ -320,8 +321,7 @@ export default function ProfileScreen() {
   if (loading) {
     return <LoadingScreen text="Cargando perfil..." />;
   }
-
-  return (
+return (
     <View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -537,6 +537,19 @@ export default function ProfileScreen() {
             </Text>
           )}
         </View>
+
+        {usuario?.esManager && (
+          <TouchableOpacity
+            style={styles.managerButton}
+            activeOpacity={0.85}
+            onPress={() => router.push("/manager" as any)}
+          >
+            <ShieldCheck size={20} color="#FFFFFF" />
+            <Text style={styles.managerButtonText}>
+              Verificar eventos (manager)
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.settingsContainer}>
           <TouchableOpacity
@@ -925,6 +938,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#8D8A99",
     lineHeight: 21,
+  },
+  managerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#7528F0",
+    borderRadius: 18,
+    paddingVertical: 15,
+    marginBottom: 18,
+  },
+  managerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "900",
   },
   settingsContainer: {
     marginTop: 4,

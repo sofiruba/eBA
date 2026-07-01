@@ -128,6 +128,7 @@ const armarUsuarioRespuesta = (usuario, opciones = {}) => {
     intereses: usuario.intereses,
     emailVerificado: usuario.emailVerificado,
     esOrganizador: usuario.esOrganizador,
+    esManager: usuario.esManager,
   };
 };
  
@@ -1095,10 +1096,10 @@ router.get("/perfil-resumen/:usuarioId", async (req, res) => {
  
     const usuario = await Usuario.findById(usuarioId)
       .select(
-        "nombre email edad ubicacionAproximada bio instagram fotoPerfilMini intereses emailVerificado esOrganizador nombreUsuario createdAt updatedAt"
+        "nombre email edad ubicacionAproximada bio instagram fotoPerfilMini intereses emailVerificado esOrganizador esManager nombreUsuario createdAt updatedAt"
       )
       .lean();
- 
+      
     if (!usuario) {
       return res.status(404).json({
         error: "Usuario no encontrado",

@@ -68,12 +68,12 @@ const normalizarConexion = (conexion) => {
   return conexionNormalizada;
 };
 
-// Obtener todos los eventos
+// Obtener todos los eventos (solo aprobados, de cara al público)
 router.get("/", async (req, res) => {
   try {
     await actualizarEventosVencidos();
 
-    const eventos = await Evento.find().sort({ fecha: 1 });
+    const eventos = await Evento.find({ estado: "aprobado" }).sort({ fecha: 1 });
 
     res.json({
       message: "Eventos obtenidos correctamente",
@@ -94,6 +94,7 @@ router.get("/activos", async (req, res) => {
 
     const eventos = await Evento.find({
       activo: true,
+      estado: "aprobado",
     }).sort({ fecha: 1 });
 
     res.json({
@@ -116,6 +117,7 @@ router.get("/promocionados", async (req, res) => {
     const eventos = await Evento.find({
       esPromocionado: true,
       activo: true,
+      estado: "aprobado",
       fecha: { $gte: new Date() },
     }).sort({ fecha: 1 });
 
@@ -139,6 +141,7 @@ router.get("/promocionados-activos", async (req, res) => {
     const eventos = await Evento.find({
       esPromocionado: true,
       activo: true,
+      estado: "aprobado",
     }).sort({ fecha: 1 });
 
     res.json({
@@ -148,6 +151,97 @@ router.get("/promocionados-activos", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: "Error al obtener eventos promocionados activos",
+      detalle: error.message,
+    });
+  }
+});
+
+// ===== VISTAS DE MANAGER (verificación de eventos) =====
+
+// GET /api/eventos/pendientes -> cola de eventos a verificar
+router.get("/pendientes", async (req, res) => {
+  try {
+    const eventos = await Evento.find({ estado: "pendiente" }).sort({
+      createdAt: 1,
+    });
+
+    res.json({
+      message: "Eventos pendientes obtenidos correctamente",
+      eventos,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al obtener eventos pendientes",
+      detalle: error.message,
+    });
+  }
+});
+
+// GET /api/eventos/manager/todos -> todos los eventos sin importar estado (panel manager)
+router.get("/manager/todos", async (req, res) => {
+  try {
+    const { estado } = req.query;
+
+    const filtro = estado ? { estado } : {};
+
+    const eventos = await Evento.find(filtro).sort({ createdAt: -1 });
+
+    res.json({
+      message: "Eventos obtenidos correctamente",
+      eventos,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al obtener eventos",
+      detalle: error.message,
+    });
+  }
+});
+
+// PATCH /api/eventos/:id/estado -> el manager aprueba o rechaza un evento
+router.patch("/:id/estado", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { estado, motivoRechazo, managerId } = req.body;
+
+    if (!["aprobado", "rechazado", "pendiente"].includes(estado)) {
+      return res.status(400).json({
+        error: "Estado inválido. Debe ser aprobado, rechazado o pendiente",
+      });
+    }
+
+    if (managerId) {
+      const manager = await Usuario.findById(managerId);
+
+      if (!manager || !manager.esManager) {
+        return res.status(403).json({
+          error: "El usuario no tiene permisos de manager",
+        });
+      }
+    }
+
+    const evento = await Evento.findById(id);
+
+    if (!evento) {
+      return res.status(404).json({
+        error: "Evento no encontrado",
+      });
+    }
+
+    evento.estado = estado;
+    evento.motivoRechazo = estado === "rechazado" ? motivoRechazo || "" : "";
+    evento.verificadoPor = managerId || evento.verificadoPor;
+    evento.verificadoEn = new Date();
+
+    await evento.save();
+
+    res.json({
+      message: `Evento ${estado} correctamente`,
+      evento,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al actualizar el estado del evento",
       detalle: error.message,
     });
   }
@@ -205,6 +299,7 @@ router.get("/categoria/:categoria", async (req, res) => {
 
     const eventos = await Evento.find({
       categoria: req.params.categoria,
+      estado: "aprobado",
     }).sort({ fecha: 1 });
 
     res.json({
@@ -227,6 +322,7 @@ router.get("/buscar/:texto", async (req, res) => {
     const texto = req.params.texto;
 
     const eventos = await Evento.find({
+      estado: "aprobado",
       $or: [
         { nombre: { $regex: texto, $options: "i" } },
         { descripcion: { $regex: texto, $options: "i" } },
@@ -264,6 +360,7 @@ router.get("/recomendados/:usuarioId", async (req, res) => {
     const eventos = await Evento.find({
       categoria: { $in: interesesUsuario },
       fecha: { $gte: new Date() },
+      estado: "aprobado",
     }).sort({ fecha: 1 });
 
     return res.json({
@@ -333,6 +430,52 @@ router.get("/resumen/:eventoId/usuario/:usuarioId", async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       error: "Error al obtener resumen de evento",
+      detalle: error.message,
+    });
+  }
+});
+
+// PUT /api/eventos/:id -> editar evento (usado por el manager y por el organizador)
+router.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const camposEditables = [
+      "nombre",
+      "descripcion",
+      "fecha",
+      "ubicacion",
+      "categoria",
+      "imagen",
+      "organizador",
+      "activo",
+      "esPromocionado",
+    ];
+
+    const cambios = {};
+    camposEditables.forEach((campo) => {
+      if (req.body[campo] !== undefined) {
+        cambios[campo] = req.body[campo];
+      }
+    });
+
+    const evento = await Evento.findByIdAndUpdate(id, cambios, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!evento) {
+      return res.status(404).json({
+        error: "Evento no encontrado",
+      });
+    }
+
+    res.json({
+      message: "Evento actualizado correctamente",
+      evento,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al actualizar evento",
       detalle: error.message,
     });
   }

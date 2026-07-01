@@ -1,8 +1,17 @@
+import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { router, usePathname } from "expo-router";
-import { Home, MessageCircle, Users, User } from "lucide-react-native";
+import {
+  Home,
+  MessageCircle,
+  Users,
+  User,
+  PlusCircle,
+  ShieldCheck,
+} from "lucide-react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const NAV_ITEMS = [
+const NAV_ITEMS_USUARIO = [
   {
     label: "Home",
     route: "/home",
@@ -29,8 +38,51 @@ const NAV_ITEMS = [
   },
 ];
 
+const NAV_ITEMS_MANAGER = [
+  {
+    label: "Home",
+    route: "/home",
+    icon: Home,
+    matches: ["/home", "/explore", "/event-detail", "/event-people"],
+  },
+  {
+    label: "Crear evento",
+    route: "/crear-evento",
+    icon: PlusCircle,
+    matches: ["/crear-evento"],
+  },
+  {
+    label: "Verificación",
+    route: "/manager",
+    icon: ShieldCheck,
+    matches: ["/manager"],
+  },
+  {
+    label: "Perfil",
+    route: "/profile",
+    icon: User,
+    matches: ["/profile", "/edit-profile", "/favorites", "/notifications"],
+  },
+];
+
 export default function BottomNav() {
   const pathname = usePathname();
+  const [esManager, setEsManager] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem("usuario").then((usuarioGuardado) => {
+      if (!usuarioGuardado) return;
+
+      try {
+        const usuario = JSON.parse(usuarioGuardado);
+        setEsManager(!!usuario.esManager);
+      } catch (error) {
+        console.log("Error leyendo usuario en BottomNav:", error);
+      }
+    });
+  }, [pathname]);
+
+  const items = esManager ? NAV_ITEMS_MANAGER : NAV_ITEMS_USUARIO;
 
   const isActive = (matches: string[]) => {
     return matches.some((route) => pathname === route || pathname.startsWith(`${route}/`));
@@ -38,7 +90,7 @@ export default function BottomNav() {
 
   return (
     <View style={styles.navbar}>
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const Icon = item.icon;
         const active = isActive(item.matches);
 

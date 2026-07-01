@@ -37,6 +37,21 @@ const eventoSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    estado: {
+      type: String,
+      enum: ["pendiente", "aprobado", "rechazado"],
+      default: "pendiente",
+    },
+    motivoRechazo: {
+      type: String,
+    },
+    verificadoPor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Usuario",
+    },
+    verificadoEn: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
@@ -47,5 +62,6 @@ eventoSchema.index({ fecha: 1 });
 eventoSchema.index({ activo: 1, fecha: 1 });
 eventoSchema.index({ esPromocionado: 1, activo: 1, fecha: 1 });
 eventoSchema.index({ categoria: 1, fecha: 1 });
+eventoSchema.index({ estado: 1, fecha: 1 });
 
 module.exports = mongoose.model("Evento", eventoSchema, "eventos");
