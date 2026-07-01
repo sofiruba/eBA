@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   XCircle,
   Save,
+  Trash2,
 } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -129,6 +130,39 @@ export default function ManagerEventoDetalle() {
       setGuardando(false);
     }
   };
+  const eliminarEvento = async () => {
+    if (!evento) return;
+
+    const confirmar = confirm(
+      `¿Seguro que querés eliminar "${evento.nombre}"? Esta acción no se puede deshacer.`
+    );
+
+    if (!confirmar) return;
+
+    try {
+      setGuardando(true);
+
+      const response = await fetch(`${API_URL}/api/eventos/${evento._id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "No se pudo eliminar el evento.");
+        return;
+      }
+
+      invalidateEventCaches(evento._id);
+      alert("Evento eliminado correctamente.");
+      router.replace("/manager" as any);
+    } catch (error) {
+      console.log("Error al eliminar evento:", error);
+      alert("No se pudo conectar con el servidor.");
+    } finally {
+      setGuardando(false);
+    }
+  };
 
   const cambiarEstado = async (
     estado: "aprobado" | "rechazado",
@@ -178,8 +212,7 @@ export default function ManagerEventoDetalle() {
     return <LoadingScreen text="Evento no encontrado..." />;
   }
 
-  return (
-    <View style={styles.screen}>
+  return (<View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
@@ -323,6 +356,15 @@ export default function ManagerEventoDetalle() {
             </Text>
           </Pressable>
         </View>
+
+        <Pressable
+          style={styles.deleteButton}
+          onPress={eliminarEvento}
+          disabled={guardando}
+        >
+          <Trash2 size={16} color="#E53935" />
+          <Text style={styles.deleteButtonText}>Eliminar evento</Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -477,15 +519,30 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 16,
   },
+  actionButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+    fontSize: 14,
+  },
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 14,
+    paddingVertical: 13,
+    borderRadius: 16,
+    backgroundColor: "#FFF1F2",
+  },
+  deleteButtonText: {
+    color: "#E53935",
+    fontWeight: "900",
+    fontSize: 13,
+  },
   approveButton: {
     backgroundColor: "#12A150",
   },
   rejectButton: {
     backgroundColor: "#E53935",
-  },
-  actionButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "900",
-    fontSize: 14,
   },
 });
