@@ -50,6 +50,29 @@ const ESTADO_CONFIG: Record<
   },
 };
 
+// Convierte un ISO string (UTC) guardado en la base a "AAAA-MM-DD" en hora
+// LOCAL, para que el input muestre el mismo día que el usuario cargó.
+const fechaISOaInputLocal = (fechaISO?: string) => {
+  if (!fechaISO) return "";
+
+  const fechaObj = new Date(fechaISO);
+
+  if (isNaN(fechaObj.getTime())) return "";
+
+  const anio = fechaObj.getFullYear();
+  const mes = String(fechaObj.getMonth() + 1).padStart(2, "0");
+  const dia = String(fechaObj.getDate()).padStart(2, "0");
+
+  return `${anio}-${mes}-${dia}`;
+};
+
+// Convierte "AAAA-MM-DD" del input a un Date al mediodía LOCAL, para evitar
+// que al pasar a UTC se corra al día anterior.
+const fechaInputAFechaLocal = (fechaInput: string) => {
+  const [anio, mes, dia] = fechaInput.split("-").map(Number);
+  return new Date(anio, (mes || 1) - 1, dia || 1, 12, 0, 0);
+};
+
 export default function MiEventoDetalle() {
   const { id } = useLocalSearchParams();
 
@@ -113,9 +136,7 @@ export default function MiEventoDetalle() {
       setNombre(eventoData.nombre || "");
       setDescripcion(eventoData.descripcion || "");
       setCategoria(eventoData.categoria || "");
-      setFecha(
-        eventoData.fecha ? eventoData.fecha.slice(0, 10) : ""
-      );
+      setFecha(fechaISOaInputLocal(eventoData.fecha));
       setDireccion(eventoData.ubicacion?.direccion || "");
       setBarrio(eventoData.ubicacion?.barrio || "");
       setCiudad(eventoData.ubicacion?.ciudad || "");
@@ -136,7 +157,7 @@ export default function MiEventoDetalle() {
       return;
     }
 
-    const fechaDate = new Date(fecha);
+    const fechaDate = fechaInputAFechaLocal(fecha);
 
     if (isNaN(fechaDate.getTime())) {
       alert("La fecha no es válida. Usá el formato AAAA-MM-DD.");

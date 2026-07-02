@@ -70,7 +70,8 @@ export default function CrearEvento() {
       return;
     }
 
-    const fechaDate = new Date(fecha);
+    const [anioFecha, mesFecha, diaFecha] = fecha.split("-").map(Number);
+    const fechaDate = new Date(anioFecha, (mesFecha || 1) - 1, diaFecha || 1, 12, 0, 0);
 
     if (isNaN(fechaDate.getTime())) {
       alert("La fecha no es válida. Usá el formato AAAA-MM-DD (ej: 2026-08-20).");
