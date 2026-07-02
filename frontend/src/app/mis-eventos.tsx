@@ -55,6 +55,9 @@ export default function MisEventosScreen() {
   const [permitido, setPermitido] = useState<boolean | null>(null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"pendiente" | "aprobado" | "rechazado">(
+    "pendiente"
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -97,6 +100,14 @@ export default function MisEventosScreen() {
       setLoading(false);
     }
   };
+
+  const eventosFiltrados = eventos.filter(
+    (evento) => (evento.estado || "pendiente") === tab
+  );
+
+  const contarPorEstado = (estado: "pendiente" | "aprobado" | "rechazado") =>
+    eventos.filter((evento) => (evento.estado || "pendiente") === estado)
+      .length;
 
   if (loading || permitido === null) {
     return <LoadingScreen text="Cargando tus eventos..." />;
@@ -141,12 +152,41 @@ export default function MisEventosScreen() {
           <Text style={styles.crearButtonText}>Crear evento</Text>
         </TouchableOpacity>
 
-        {eventos.length === 0 ? (
+        <View style={styles.tabs}>
+          {(
+            [
+              { key: "pendiente" as const, label: "Pendientes" },
+              { key: "aprobado" as const, label: "Aprobados" },
+              { key: "rechazado" as const, label: "Rechazados" },
+            ]
+          ).map((item) => {
+            const activa = tab === item.key;
+            const cantidad = contarPorEstado(item.key);
+
+            return (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.tab, activa && styles.tabActive]}
+                activeOpacity={0.85}
+                onPress={() => setTab(item.key)}
+              >
+                <Text style={[styles.tabText, activa && styles.tabTextActive]}>
+                  {item.label}
+                  {cantidad > 0 ? ` (${cantidad})` : ""}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {eventosFiltrados.length === 0 ? (
           <Text style={styles.emptyText}>
-            Todavía no creaste ningún evento.
+            {tab === "pendiente" && "No tenés eventos esperando revisión."}
+            {tab === "aprobado" && "Todavía no tenés eventos aprobados."}
+            {tab === "rechazado" && "No tenés eventos rechazados."}
           </Text>
         ) : (
-          eventos.map((evento) => {
+          eventosFiltrados.map((evento) => {
             const estadoInfo =
               ESTADO_CONFIG[evento.estado || "pendiente"] ||
               ESTADO_CONFIG.pendiente;
@@ -249,6 +289,33 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "900",
     fontSize: 14,
+  },
+  tabs: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 18,
+  },
+  tab: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 11,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E8E2F8",
+  },
+  tabActive: {
+    backgroundColor: "#7528F0",
+    borderColor: "#7528F0",
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#7528F0",
+  },
+  tabTextActive: {
+    color: "#FFFFFF",
   },
   emptyText: {
     fontSize: 14,
