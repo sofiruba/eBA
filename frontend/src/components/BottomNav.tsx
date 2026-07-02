@@ -9,8 +9,9 @@ import {
   PlusCircle,
   ShieldCheck,
   IdCard,
+  CalendarDays,
 } from "lucide-react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { obtenerUsuarioActualizado } from "../utils/usuario";
 
 const NAV_ITEMS_USUARIO = [
   {
@@ -30,6 +31,39 @@ const NAV_ITEMS_USUARIO = [
     route: "/connections",
     icon: Users,
     matches: ["/connections", "/user-profile"],
+  },
+  {
+    label: "Perfil",
+    route: "/profile",
+    icon: User,
+    matches: ["/profile", "/edit-profile", "/favorites", "/notifications"],
+  },
+];
+
+const NAV_ITEMS_ORGANIZADOR = [
+  {
+    label: "Home",
+    route: "/home",
+    icon: Home,
+    matches: ["/home", "/explore", "/event-detail", "/event-people"],
+  },
+  {
+    label: "Chats",
+    route: "/chats",
+    icon: MessageCircle,
+    matches: ["/chats", "/chat"],
+  },
+  {
+    label: "Conexiones",
+    route: "/connections",
+    icon: Users,
+    matches: ["/connections", "/user-profile"],
+  },
+  {
+    label: "Mis eventos",
+    route: "/mis-eventos",
+    icon: CalendarDays,
+    matches: ["/mis-eventos"],
   },
   {
     label: "Perfil",
@@ -75,21 +109,22 @@ const NAV_ITEMS_MANAGER = [
 export default function BottomNav() {
   const pathname = usePathname();
   const [esManager, setEsManager] = useState(false);
+  const [esOrganizador, setEsOrganizador] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem("usuario").then((usuarioGuardado) => {
-      if (!usuarioGuardado) return;
+    obtenerUsuarioActualizado().then((usuario) => {
+      if (!usuario) return;
 
-      try {
-        const usuario = JSON.parse(usuarioGuardado);
-        setEsManager(!!usuario.esManager);
-      } catch (error) {
-        console.log("Error leyendo usuario en BottomNav:", error);
-      }
+      setEsManager(!!usuario.esManager);
+      setEsOrganizador(!!usuario.esOrganizador);
     });
   }, [pathname]);
 
-  const items = esManager ? NAV_ITEMS_MANAGER : NAV_ITEMS_USUARIO;
+  const items = esManager
+    ? NAV_ITEMS_MANAGER
+    : esOrganizador
+    ? NAV_ITEMS_ORGANIZADOR
+    : NAV_ITEMS_USUARIO;
 
   const coincidenciaMasLarga = () => {
     let mejorRuta = "";

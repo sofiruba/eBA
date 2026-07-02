@@ -15,6 +15,7 @@ export type Evento = {
   categoria?: string;
   imagen?: string;
   organizador?: string;
+  organizadorId?: string;
   esPromocionado?: boolean;
   activo?: boolean;
   estado?: EstadoEvento;

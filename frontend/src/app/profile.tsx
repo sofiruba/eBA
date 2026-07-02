@@ -562,19 +562,16 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
 
-        {!esManagerActual && !usuario?.esOrganizador && (
-          <TouchableOpacity
-            style={styles.organizadorButton}
-            activeOpacity={0.85}
-            onPress={() => router.push("/ser-organizador" as any)}
-          >
-            <IdCard size={20} color="#7528F0" />
-            <Text style={styles.organizadorButtonText}>
-              Convertite en organizador
-            </Text>
-          </TouchableOpacity>
-        )}
-
+        {!esManagerActual && usuario?.esOrganizador && (
+  <TouchableOpacity
+    style={styles.organizadorButton}
+    activeOpacity={0.85}
+    onPress={() => router.push("/mis-eventos" as any)}
+  >
+    <IdCard size={20} color="#7528F0" />
+    <Text style={styles.organizadorButtonText}>Mis eventos</Text>
+  </TouchableOpacity>
+)}
         {!esManagerActual && (
           <View style={styles.settingsContainer}>
             <TouchableOpacity

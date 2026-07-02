@@ -29,6 +29,10 @@ const eventoSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    organizadorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Usuario",
+    },
     activo: {
       type: Boolean,
       default: true,
@@ -63,5 +67,6 @@ eventoSchema.index({ activo: 1, fecha: 1 });
 eventoSchema.index({ esPromocionado: 1, activo: 1, fecha: 1 });
 eventoSchema.index({ categoria: 1, fecha: 1 });
 eventoSchema.index({ estado: 1, fecha: 1 });
+eventoSchema.index({ organizadorId: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Evento", eventoSchema, "eventos");

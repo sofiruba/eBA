@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const router = express.Router();
 
 const Evento = require("../models/Evento");
@@ -34,6 +35,42 @@ const eliminarSiExiste = async (Modelo, filtro) => {
   }
 
   return await Modelo.deleteMany(filtro);
+};
+
+// Un manager puede gestionar cualquier evento. Un organizador solo los suyos.
+// Si no mandan solicitanteId (llamadas viejas del panel de manager), se deja pasar
+// para no romper flujos existentes.
+const verificarPermisoSobreEvento = async (evento, solicitanteId) => {
+  if (!solicitanteId) {
+    return { permitido: true };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(solicitanteId)) {
+    return { permitido: false, status: 400, error: "Id de usuario inválido" };
+  }
+
+  const solicitante = await Usuario.findById(solicitanteId);
+
+  if (!solicitante) {
+    return { permitido: false, status: 404, error: "Usuario no encontrado" };
+  }
+
+  if (solicitante.esManager) {
+    return { permitido: true };
+  }
+
+  if (
+    evento.organizadorId &&
+    evento.organizadorId.toString() === String(solicitanteId)
+  ) {
+    return { permitido: true };
+  }
+
+  return {
+    permitido: false,
+    status: 403,
+    error: "No tenés permiso para modificar este evento",
+  };
 };
 
 const filtroConexionesUsuario = (usuarioId) => ({
@@ -235,6 +272,51 @@ router.patch("/:id/estado", async (req, res) => {
 
     await evento.save();
 
+    if (evento.organizadorId && (estado === "aprobado" || estado === "rechazado")) {
+      await Notificacion.create({
+        usuarioId: evento.organizadorId,
+        mensaje:
+          estado === "aprobado"
+            ? `¡Tu evento "${evento.nombre}" fue aprobado y ya está publicado!`
+            : `Tu evento "${evento.nombre}" fue rechazado. Motivo: ${
+                evento.motivoRechazo || "sin especificar"
+              }`,
+        tipo: "evento",
+        entidadTipo: "evento",
+        entidadId: evento._id,
+        actorId: managerId || undefined,
+      });
+
+      if (estado === "aprobado") {
+        const organizador = await Usuario.findById(evento.organizadorId);
+
+        if (organizador) {
+          const conexiones = await Conexion.find({
+            $or: [
+              { usuario1Id: organizador._id },
+              { usuario2Id: organizador._id },
+            ],
+          });
+
+          for (const conexion of conexiones) {
+            const usuarioNotificar =
+              conexion.usuario1Id.toString() === organizador._id.toString()
+                ? conexion.usuario2Id
+                : conexion.usuario1Id;
+
+            await Notificacion.create({
+              usuarioId: usuarioNotificar,
+              mensaje: `${organizador.nombre} creó un nuevo evento: ${evento.nombre}`,
+              tipo: "evento",
+              entidadTipo: "evento",
+              entidadId: evento._id,
+              actorId: organizador._id,
+            });
+          }
+        }
+      }
+    }
+
     res.json({
       message: `Evento ${estado} correctamente`,
       evento,
@@ -250,38 +332,72 @@ router.patch("/:id/estado", async (req, res) => {
 // Crear evento
 router.post("/", async (req, res) => {
   try {
-    const nuevoEvento = new Evento(req.body);
+    const datosEvento = { ...req.body };
+
+    if (datosEvento.organizadorId) {
+      if (!mongoose.Types.ObjectId.isValid(datosEvento.organizadorId)) {
+        return res.status(400).json({ error: "Id de organizador inválido" });
+      }
+
+      const organizadorSolicitante = await Usuario.findById(
+        datosEvento.organizadorId
+      );
+
+      if (!organizadorSolicitante || !organizadorSolicitante.esOrganizador) {
+        return res.status(403).json({
+          error: "Solo un organizador verificado puede crear eventos",
+        });
+      }
+
+      // Todo evento creado por un organizador entra a revisión, sin importar
+      // qué estado mande el cliente.
+      datosEvento.estado = "pendiente";
+      datosEvento.motivoRechazo = "";
+      datosEvento.verificadoPor = undefined;
+      datosEvento.verificadoEn = undefined;
+    }
+
+    const nuevoEvento = new Evento(datosEvento);
 
     await nuevoEvento.save();
 
-    const organizador = await Usuario.findById(nuevoEvento.organizadorId);
+    // Si ya nace aprobado (evento cargado directamente por un manager), se
+    // avisa a las conexiones del organizador. Si nace pendiente, se avisa
+    // recién cuando un manager lo apruebe.
+    if (nuevoEvento.organizadorId && nuevoEvento.estado === "aprobado") {
+      const organizador = await Usuario.findById(nuevoEvento.organizadorId);
 
-    if (organizador) {
-      const conexiones = await Conexion.find({
-        $or: [
-          { usuario1Id: organizador._id },
-          { usuario2Id: organizador._id },
-        ],
-      });
-
-      for (const conexion of conexiones) {
-        const usuarioNotificar =
-          conexion.usuario1Id.toString() === organizador._id.toString()
-            ? conexion.usuario2Id
-            : conexion.usuario1Id;
-
-        await Notificacion.create({
-          usuarioId: usuarioNotificar,
-          eventoId: nuevoEvento._id,
-          mensaje: `${organizador.nombre} creó un nuevo evento: ${nuevoEvento.nombre}`,
-          tipo: "evento",
-          leida: false,
+      if (organizador) {
+        const conexiones = await Conexion.find({
+          $or: [
+            { usuario1Id: organizador._id },
+            { usuario2Id: organizador._id },
+          ],
         });
+
+        for (const conexion of conexiones) {
+          const usuarioNotificar =
+            conexion.usuario1Id.toString() === organizador._id.toString()
+              ? conexion.usuario2Id
+              : conexion.usuario1Id;
+
+          await Notificacion.create({
+            usuarioId: usuarioNotificar,
+            mensaje: `${organizador.nombre} creó un nuevo evento: ${nuevoEvento.nombre}`,
+            tipo: "evento",
+            entidadTipo: "evento",
+            entidadId: nuevoEvento._id,
+            actorId: organizador._id,
+          });
+        }
       }
     }
 
     res.status(201).json({
-      message: "Evento creado correctamente",
+      message:
+        nuevoEvento.estado === "pendiente"
+          ? "Evento enviado. Un manager lo va a revisar antes de publicarlo."
+          : "Evento creado correctamente",
       evento: nuevoEvento,
     });
   } catch (error) {
@@ -435,10 +551,36 @@ router.get("/resumen/:eventoId/usuario/:usuarioId", async (req, res) => {
   }
 });
 
+// GET /api/eventos/organizador/:organizadorId -> todos los eventos propios (cualquier estado)
+router.get("/organizador/:organizadorId", async (req, res) => {
+  try {
+    const { organizadorId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(organizadorId)) {
+      return res.status(400).json({ error: "Id de organizador inválido" });
+    }
+
+    const eventos = await Evento.find({ organizadorId }).sort({
+      createdAt: -1,
+    });
+
+    res.json({
+      message: "Eventos obtenidos correctamente",
+      eventos,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Error al obtener tus eventos",
+      detalle: error.message,
+    });
+  }
+});
+
 // PUT /api/eventos/:id -> editar evento (usado por el manager y por el organizador)
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const { solicitanteId } = req.body;
     const camposEditables = [
       "nombre",
       "descripcion",
@@ -451,12 +593,43 @@ router.put("/:id", async (req, res) => {
       "esPromocionado",
     ];
 
+    const eventoActual = await Evento.findById(id);
+
+    if (!eventoActual) {
+      return res.status(404).json({
+        error: "Evento no encontrado",
+      });
+    }
+
+    const permiso = await verificarPermisoSobreEvento(
+      eventoActual,
+      solicitanteId
+    );
+
+    if (!permiso.permitido) {
+      return res.status(permiso.status).json({ error: permiso.error });
+    }
+
     const cambios = {};
     camposEditables.forEach((campo) => {
       if (req.body[campo] !== undefined) {
         cambios[campo] = req.body[campo];
       }
     });
+
+    // Si un organizador (no manager) edita un evento que ya fue revisado,
+    // vuelve a quedar pendiente para que el manager lo revise de nuevo.
+    if (
+      solicitanteId &&
+      eventoActual.organizadorId &&
+      eventoActual.organizadorId.toString() === String(solicitanteId) &&
+      eventoActual.estado !== "pendiente"
+    ) {
+      cambios.estado = "pendiente";
+      cambios.motivoRechazo = "";
+      cambios.verificadoPor = null;
+      cambios.verificadoEn = null;
+    }
 
     const evento = await Evento.findByIdAndUpdate(id, cambios, {
       new: true,
@@ -485,6 +658,7 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const solicitanteId = req.body?.solicitanteId || req.query?.solicitanteId;
 
     const evento = await Evento.findById(id);
 
@@ -492,6 +666,12 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({
         error: "Evento no encontrado",
       });
+    }
+
+    const permiso = await verificarPermisoSobreEvento(evento, solicitanteId);
+
+    if (!permiso.permitido) {
+      return res.status(permiso.status).json({ error: permiso.error });
     }
 
     const idsEvento = [id, evento._id];
