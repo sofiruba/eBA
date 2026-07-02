@@ -19,22 +19,23 @@ import {
   X,
 } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+ 
 import { API_URL } from "../../config/api";
 import LoadingScreen from "../../components/LoadingScreen";
 import EmptyState from "../../components/EmptyState";
 import ProfileAvatarLink from "../../components/ProfileAvatarLink";
 import CommentThread from "../../components/comments/CommentThread";
 import useAutoRefresh from "../../hooks/useAutoRefresh";
-
+ 
 import { Usuario } from "../../types/Usuario";
 import { Publicacion, Comentario } from "../../types/Social";
 import { Evento } from "../../types/Evento";
 import { getCached, invalidateCachedByPrefix, removeCached, setCached } from "../../utils/cache";
-
+import { eventoYaPaso } from "../../utils/eventHelpers";
+ 
 export default function PublicationDetailScreen() {
   const { id } = useLocalSearchParams();
-
+ 
   const [publicacion, setPublicacion] = useState<Publicacion | null>(null);
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [usuarioActual, setUsuarioActual] = useState<Usuario | null>(null);
@@ -43,47 +44,47 @@ export default function PublicationDetailScreen() {
   const [nuevoComentario, setNuevoComentario] = useState("");
   const [respuestas, setRespuestas] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-
+ 
   const [editandoPublicacion, setEditandoPublicacion] = useState(false);
   const [textoPublicacionEditada, setTextoPublicacionEditada] = useState("");
   const [guardandoPublicacion, setGuardandoPublicacion] = useState(false);
   const [eliminandoPublicacion, setEliminandoPublicacion] = useState(false);
-
+ 
   useEffect(() => {
     iniciarPantalla();
   }, [id]);
-
+ 
   const iniciarPantalla = async () => {
     try {
       setLoading(true);
-
+ 
       const usuarioGuardado = await AsyncStorage.getItem("usuario");
-
+ 
       if (!usuarioGuardado) {
         router.replace("/login" as any);
         return;
       }
-
+ 
       const usuario = JSON.parse(usuarioGuardado);
       const idUsuario = usuario.id || usuario._id;
-
+ 
       setUsuarioActual(usuario);
       setUsuarioActualId(idUsuario);
-
+ 
       const publicacionCacheada = getCached<Publicacion>(
         `publicacion:${String(id)}`
       );
       const comentariosCacheados = getCached<Comentario[]>(
         `comentarios:publicacion:${String(id)}`
       );
-
+ 
       if (publicacionCacheada) {
         setPublicacion(publicacionCacheada);
         setTextoPublicacionEditada(publicacionCacheada.contenido || "");
         setComentarios(comentariosCacheados || []);
         setLoading(false);
       }
-
+ 
       await Promise.all([
         cargarPublicacion(idUsuario),
         cargarComentarios(idUsuario),
@@ -96,18 +97,18 @@ export default function PublicationDetailScreen() {
       setLoading(false);
     }
   };
-
+ 
   const cargarPublicacion = async (idUsuario = usuarioActualId) => {
     try {
       const query = idUsuario ? `?usuarioId=${idUsuario}` : "";
       const response = await fetch(`${API_URL}/api/publicaciones/${id}${query}`);
       const data = await response.json();
-
+ 
       if (!response.ok) {
         alert(data.error || "No se pudo traer la publicación.");
         return;
       }
-
+ 
       setPublicacion(data.publicacion);
       setTextoPublicacionEditada(data.publicacion?.contenido || "");
       setCached(`publicacion:${String(id)}`, data.publicacion);
@@ -116,7 +117,7 @@ export default function PublicationDetailScreen() {
       alert("No se pudo conectar con el servidor.");
     }
   };
-
+ 
   const cargarComentarios = async (idUsuario = usuarioActualId) => {
     try {
       const query = idUsuario ? `?usuarioId=${idUsuario}` : "";
@@ -124,63 +125,63 @@ export default function PublicationDetailScreen() {
         `${API_URL}/api/comentarios/publicacion/${id}${query}`
       );
       const data = await response.json();
-
+ 
       if (!response.ok) {
         console.log("Error comentarios:", data);
         return;
       }
-
+ 
       setComentarios(data.comentarios || []);
       setCached(`comentarios:publicacion:${String(id)}`, data.comentarios || []);
     } catch (error) {
       console.log("Error al cargar comentarios:", error);
     }
   };
-
+ 
   const cargarBloqueos = async (idUsuario: string) => {
     try {
       const response = await fetch(`${API_URL}/api/bloqueos/usuario/${idUsuario}`);
       const data = await response.json();
-
+ 
       if (!response.ok) {
         console.log("Error al traer bloqueos:", data);
         return;
       }
-
+ 
       const ids = (data.bloqueos || [])
         .map((bloqueo: { bloqueadoId: Usuario | string }) =>
           obtenerIdUsuario(bloqueo.bloqueadoId)
         )
         .filter(Boolean) as string[];
-
+ 
       setBloqueadosIds(ids);
     } catch (error) {
       console.log("Error al cargar bloqueos:", error);
     }
   };
-
+ 
   useAutoRefresh(
     useCallback(() => cargarComentarios(), [id]),
     30000,
     !loading
   );
-
+ 
   const obtenerUsuarioSeguro = (usuario?: Usuario | string | null) => {
     if (!usuario || typeof usuario === "string") return null;
     return usuario;
   };
-
+ 
   const obtenerEventoSeguro = (evento?: Evento | string | null) => {
     if (!evento || typeof evento === "string") return null;
     return evento;
   };
-
+ 
   const obtenerIdUsuario = (usuario?: Usuario | string | null) => {
     if (!usuario) return null;
     if (typeof usuario === "string") return usuario;
     return usuario.id || usuario._id || null;
   };
-
+ 
   const confirmarAccion = (
     titulo: string,
     mensaje: string,
@@ -188,70 +189,54 @@ export default function PublicationDetailScreen() {
   ) => {
     if (Platform.OS === "web") {
       const confirmado = window.confirm(`${titulo}\n\n${mensaje}`);
-
-      if (confirmado) {
-        accion();
-      }
-
+      if (confirmado) accion();
       return;
     }
-
+ 
     Alert.alert(titulo, mensaje, [
-      {
-        text: "Cancelar",
-        style: "cancel",
-      },
-      {
-        text: "Sí",
-        style: "destructive",
-        onPress: accion,
-      },
+      { text: "Cancelar", style: "cancel" },
+      { text: "Sí", style: "destructive", onPress: accion },
     ]);
   };
-
+ 
   const crearComentario = async () => {
     try {
       if (!nuevoComentario.trim()) {
         alert("Escribí un comentario.");
         return;
       }
-
+ 
       if (!usuarioActualId || !id) {
         alert("No se pudo identificar usuario o publicación.");
         return;
       }
-
+ 
       const response = await fetch(`${API_URL}/api/comentarios`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           publicacionId: String(id),
           usuarioId: usuarioActualId,
           contenido: nuevoComentario.trim(),
         }),
       });
-
+ 
       const data = await response.json();
-
+ 
       if (!response.ok) {
         alert(data.error || "No se pudo comentar.");
         return;
       }
-
+ 
       const comentarioNuevo: Comentario = {
         ...data.comentario,
         usuarioId:
           usuarioActual ||
-          ({
-            _id: usuarioActualId,
-            nombre: "Yo",
-          } as Usuario),
+          ({ _id: usuarioActualId, nombre: "Yo" } as Usuario),
         comentarioPadreId: null,
         createdAt: data.comentario.createdAt || new Date().toISOString(),
       };
-
+ 
       setComentarios((prev) => [...prev, comentarioNuevo]);
       removeCached(`comentarios:publicacion:${String(id)}`);
       setNuevoComentario("");
@@ -260,26 +245,24 @@ export default function PublicationDetailScreen() {
       alert("No se pudo conectar con el servidor.");
     }
   };
-
+ 
   const crearRespuesta = async (comentarioPadreId: string) => {
     try {
       const contenido = respuestas[comentarioPadreId];
-
+ 
       if (!contenido || !contenido.trim()) {
         alert("Escribí una respuesta.");
         return;
       }
-
+ 
       if (!usuarioActualId || !id) {
         alert("No se pudo identificar usuario o publicación.");
         return;
       }
-
+ 
       const response = await fetch(`${API_URL}/api/comentarios`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           publicacionId: String(id),
           usuarioId: usuarioActualId,
@@ -287,68 +270,59 @@ export default function PublicationDetailScreen() {
           contenido: contenido.trim(),
         }),
       });
-
+ 
       const data = await response.json();
-
+ 
       if (!response.ok) {
         alert(data.error || "No se pudo responder.");
         return;
       }
-
+ 
       const respuestaNueva: Comentario = {
         ...data.comentario,
         usuarioId:
           usuarioActual ||
-          ({
-            _id: usuarioActualId,
-            nombre: "Yo",
-          } as Usuario),
+          ({ _id: usuarioActualId, nombre: "Yo" } as Usuario),
         comentarioPadreId,
         createdAt: data.comentario.createdAt || new Date().toISOString(),
       };
-
+ 
       setComentarios((prev) => [...prev, respuestaNueva]);
       removeCached(`comentarios:publicacion:${String(id)}`);
-
-      setRespuestas((prev) => ({
-        ...prev,
-        [comentarioPadreId]: "",
-      }));
+      setRespuestas((prev) => ({ ...prev, [comentarioPadreId]: "" }));
     } catch (error) {
       console.log("Error al responder:", error);
       alert("No se pudo conectar con el servidor.");
     }
   };
-
+ 
   const editarPublicacion = async () => {
     try {
       if (!publicacion || !usuarioActualId) return;
-
+ 
       if (!textoPublicacionEditada.trim()) {
         alert("La publicación no puede quedar vacía.");
         return;
       }
-
+ 
       setGuardandoPublicacion(true);
-
+ 
       const response = await fetch(`${API_URL}/api/publicaciones/${publicacion._id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           usuarioId: usuarioActualId,
           contenido: textoPublicacionEditada.trim(),
         }),
       });
-
+ 
       const data = await response.json();
-
+ 
       if (!response.ok) {
         alert(data.error || "No se pudo editar la publicación.");
         return;
       }
-
+ 
       setPublicacion(data.publicacion);
       setTextoPublicacionEditada(data.publicacion?.contenido || "");
       setEditandoPublicacion(false);
@@ -360,30 +334,26 @@ export default function PublicationDetailScreen() {
       setGuardandoPublicacion(false);
     }
   };
-
+ 
   const eliminarPublicacion = async () => {
     try {
       if (!publicacion || !usuarioActualId) return;
-
+ 
       setEliminandoPublicacion(true);
-
+ 
       const response = await fetch(`${API_URL}/api/publicaciones/${publicacion._id}`, {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          usuarioId: usuarioActualId,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuarioId: usuarioActualId }),
       });
-
+ 
       const data = await response.json();
-
+ 
       if (!response.ok) {
         alert(data.error || "No se pudo eliminar la publicación.");
         return;
       }
-
+ 
       alert("Publicación eliminada correctamente.");
       removeCached(`publicacion:${publicacion._id}`);
       removeCached(`comentarios:publicacion:${publicacion._id}`);
@@ -396,34 +366,32 @@ export default function PublicationDetailScreen() {
       setEliminandoPublicacion(false);
     }
   };
-
+ 
   const editarComentario = async (comentarioId: string, contenido: string) => {
     try {
       if (!usuarioActualId) return;
-
+ 
       if (!contenido.trim()) {
         alert("El comentario no puede quedar vacío.");
         return;
       }
-
+ 
       const response = await fetch(`${API_URL}/api/comentarios/${comentarioId}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           usuarioId: usuarioActualId,
           contenido: contenido.trim(),
         }),
       });
-
+ 
       const data = await response.json();
-
+ 
       if (!response.ok) {
         alert(data.error || "No se pudo editar el comentario.");
         return;
       }
-
+ 
       setComentarios((prev) =>
         prev.map((comentario) =>
           comentario._id === comentarioId
@@ -433,7 +401,7 @@ export default function PublicationDetailScreen() {
                 updatedAt: data.comentario?.updatedAt || new Date().toISOString(),
               }
             : comentario
-          )
+        )
       );
       removeCached(`comentarios:publicacion:${String(id)}`);
     } catch (error) {
@@ -441,28 +409,24 @@ export default function PublicationDetailScreen() {
       alert("No se pudo conectar con el servidor.");
     }
   };
-
+ 
   const eliminarComentario = async (comentarioId: string) => {
     try {
       if (!usuarioActualId) return;
-
+ 
       const response = await fetch(`${API_URL}/api/comentarios/${comentarioId}`, {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          usuarioId: usuarioActualId,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuarioId: usuarioActualId }),
       });
-
+ 
       const data = await response.json();
-
+ 
       if (!response.ok) {
         alert(data.error || "No se pudo eliminar el comentario.");
         return;
       }
-
+ 
       setComentarios((prev) =>
         prev.filter((comentario) => {
           const padre = comentario.comentarioPadreId as any;
@@ -475,10 +439,9 @@ export default function PublicationDetailScreen() {
       alert("No se pudo conectar con el servidor.");
     }
   };
-
+ 
   const formatearFecha = (fecha?: string) => {
     if (!fecha) return "";
-
     return new Date(fecha).toLocaleDateString("es-AR", {
       day: "2-digit",
       month: "short",
@@ -486,21 +449,21 @@ export default function PublicationDetailScreen() {
       minute: "2-digit",
     });
   };
-
+ 
   const comentariosVisibles = comentarios.filter((comentario) => {
     const autorId = obtenerIdUsuario(comentario.usuarioId);
     return !autorId || !bloqueadosIds.includes(autorId);
   });
-
+ 
   const comentariosPrincipales = comentariosVisibles.filter((comentario) => {
     const padre = comentario.comentarioPadreId as any;
     return !padre;
   });
-
+ 
   if (loading) {
     return <LoadingScreen text="Cargando publicación..." />;
   }
-
+ 
   if (!publicacion) {
     return (
       <EmptyState
@@ -511,13 +474,14 @@ export default function PublicationDetailScreen() {
       />
     );
   }
-
+ 
   const usuarioPublicacion = obtenerUsuarioSeguro(publicacion.usuarioId);
   const eventoPublicacion = obtenerEventoSeguro(publicacion.eventoId);
   const idAutorPublicacion = obtenerIdUsuario(publicacion.usuarioId);
   const autorBloqueado = !!idAutorPublicacion && bloqueadosIds.includes(idAutorPublicacion);
   const esMiPublicacion = !!usuarioActualId && idAutorPublicacion === usuarioActualId;
-
+  const eventoTerminado = eventoYaPaso(eventoPublicacion?.fecha);
+ 
   if (autorBloqueado) {
     return (
       <EmptyState
@@ -528,7 +492,7 @@ export default function PublicationDetailScreen() {
       />
     );
   }
-
+ 
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -538,25 +502,23 @@ export default function PublicationDetailScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft size={22} color="#332047" />
         </TouchableOpacity>
-
+ 
         <View style={styles.postCard}>
           <View style={styles.postHeader}>
             <ProfileAvatarLink usuario={usuarioPublicacion} size={46} />
-
+ 
             <View style={styles.postUserInfo}>
               <Text style={styles.postUserName}>
                 {usuarioPublicacion?.nombre || "Usuario eliminado"}
               </Text>
-
               <Text style={styles.postUsername}>
                 @{usuarioPublicacion?.nombreUsuario || "usuario_eliminado"}
               </Text>
-
               <Text style={styles.postDate}>
                 {formatearFecha(publicacion.createdAt)}
               </Text>
             </View>
-
+ 
             {esMiPublicacion && !editandoPublicacion && (
               <View style={styles.postActions}>
                 <TouchableOpacity
@@ -569,7 +531,7 @@ export default function PublicationDetailScreen() {
                 >
                   <Pencil size={17} color="#7528F0" />
                 </TouchableOpacity>
-
+ 
                 <TouchableOpacity
                   style={styles.deleteActionButton}
                   activeOpacity={0.85}
@@ -586,7 +548,7 @@ export default function PublicationDetailScreen() {
                 </TouchableOpacity>
               </View>
             )}
-
+ 
             {!esMiPublicacion && !!usuarioActual?.esManager && (
               <View style={styles.postActions}>
                 <TouchableOpacity
@@ -606,7 +568,7 @@ export default function PublicationDetailScreen() {
               </View>
             )}
           </View>
-
+ 
           {editandoPublicacion ? (
             <View style={styles.editPostBox}>
               <TextInput
@@ -617,7 +579,7 @@ export default function PublicationDetailScreen() {
                 placeholder="Editar publicación..."
                 placeholderTextColor="#A7A7B0"
               />
-
+ 
               <View style={styles.editPostActions}>
                 <TouchableOpacity
                   style={styles.cancelEditButton}
@@ -631,7 +593,7 @@ export default function PublicationDetailScreen() {
                   <X size={16} color="#8D8A99" />
                   <Text style={styles.cancelEditText}>Cancelar</Text>
                 </TouchableOpacity>
-
+ 
                 <TouchableOpacity
                   style={styles.saveEditButton}
                   activeOpacity={0.85}
@@ -648,7 +610,7 @@ export default function PublicationDetailScreen() {
           ) : (
             <Text style={styles.postContent}>{publicacion.contenido}</Text>
           )}
-
+ 
           {eventoPublicacion?.nombre && (
             <TouchableOpacity
               style={styles.eventTag}
@@ -663,51 +625,54 @@ export default function PublicationDetailScreen() {
             </TouchableOpacity>
           )}
         </View>
-
+ 
         <Text style={styles.sectionTitle}>Comentarios</Text>
-
-        <View style={styles.mainCommentBox}>
-          <ProfileAvatarLink
-            usuario={
-              usuarioActual ||
-              ({
-                _id: usuarioActualId || "",
-                nombre: "Yo",
-              } as Usuario)
-            }
-            size={36}
-            fallbackToProfile
-          />
-
-          <TextInput
-            style={styles.mainCommentInput}
-            placeholder="Escribí un comentario..."
-            placeholderTextColor="#A7A7B0"
-            value={nuevoComentario}
-            onChangeText={setNuevoComentario}
-            multiline
-          />
-
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              !nuevoComentario.trim() && styles.sendButtonDisabled,
-            ]}
-            onPress={crearComentario}
-            disabled={!nuevoComentario.trim()}
-          >
-            <Text style={styles.sendButtonText}>Enviar</Text>
-          </TouchableOpacity>
-        </View>
-
+ 
+        {eventoTerminado ? (
+          <View style={styles.comentariosBloqueadosCard}>
+            <Text style={styles.comentariosBloqueadosTexto}>
+              Este evento ya finalizó. No se puede comentar en publicaciones de eventos pasados.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.mainCommentBox}>
+            <ProfileAvatarLink
+              usuario={
+                usuarioActual ||
+                ({ _id: usuarioActualId || "", nombre: "Yo" } as Usuario)
+              }
+              size={36}
+              fallbackToProfile
+            />
+ 
+            <TextInput
+              style={styles.mainCommentInput}
+              placeholder="Escribí un comentario..."
+              placeholderTextColor="#A7A7B0"
+              value={nuevoComentario}
+              onChangeText={setNuevoComentario}
+              multiline
+            />
+ 
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                !nuevoComentario.trim() && styles.sendButtonDisabled,
+              ]}
+              onPress={crearComentario}
+              disabled={!nuevoComentario.trim()}
+            >
+              <Text style={styles.sendButtonText}>Enviar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+ 
         {comentariosPrincipales.length === 0 ? (
           <View style={styles.emptyCommentsCard}>
             <MessageCircle size={34} color="#8B35E8" />
-
             <Text style={styles.emptyCommentsTitle}>
               Todavía no hay comentarios
             </Text>
-
             <Text style={styles.emptyCommentsText}>
               Sé la primera persona en responder esta publicación.
             </Text>
@@ -721,10 +686,7 @@ export default function PublicationDetailScreen() {
               usuarioActualId={usuarioActualId}
               respuestasTexto={respuestas}
               onChangeRespuesta={(comentarioId, texto) =>
-                setRespuestas((prev) => ({
-                  ...prev,
-                  [comentarioId]: texto,
-                }))
+                setRespuestas((prev) => ({ ...prev, [comentarioId]: texto }))
               }
               onEnviarRespuesta={crearRespuesta}
               onEditarComentario={editarComentario}
@@ -743,7 +705,7 @@ export default function PublicationDetailScreen() {
     </View>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -889,6 +851,22 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#332047",
     marginBottom: 12,
+  },
+  comentariosBloqueadosCard: {
+    backgroundColor: "#FFF8EC",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#FFE0A0",
+    alignItems: "center",
+  },
+  comentariosBloqueadosTexto: {
+    fontSize: 13,
+    color: "#A07800",
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 19,
   },
   mainCommentBox: {
     backgroundColor: "#FFFFFF",
