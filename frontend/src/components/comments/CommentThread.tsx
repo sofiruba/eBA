@@ -7,12 +7,12 @@ import {
   TextInput,
 } from "react-native";
 import { Check, MessageCircle, Pencil, Trash2, X } from "lucide-react-native";
-
+ 
 import ProfileAvatarLink from "../ProfileAvatarLink";
 import ProfileTextLink from "../ProfileTextLink";
 import { Comentario } from "../../types/Social";
 import { Usuario } from "../../types/Usuario";
-
+ 
 type Props = {
   comentario: Comentario;
   comentarios: Comentario[];
@@ -25,7 +25,7 @@ type Props = {
   puedeAdministrar?: boolean;
   depth?: number;
 };
-
+ 
 export default function CommentThread({
   comentario,
   comentarios,
@@ -41,31 +41,31 @@ export default function CommentThread({
   const [mostrarRespuesta, setMostrarRespuesta] = useState(false);
   const [editando, setEditando] = useState(false);
   const [textoEditado, setTextoEditado] = useState(comentario.contenido || "");
-
+ 
   const obtenerUsuarioSeguro = (usuario?: Usuario | string | null) => {
     if (!usuario || typeof usuario === "string") return null;
     return usuario;
   };
-
+ 
   const obtenerUsuarioId = (usuario?: Usuario | string | null) => {
     if (!usuario) return null;
     if (typeof usuario === "string") return usuario;
     return usuario.id || usuario._id || null;
   };
-
+ 
   const usuarioComentario = obtenerUsuarioSeguro(comentario.usuarioId);
   const idAutorComentario = obtenerUsuarioId(comentario.usuarioId);
   const esMiComentario =
     !!usuarioActualId && !!idAutorComentario && usuarioActualId === idAutorComentario;
-
+ 
   const respuestas = comentarios.filter((item) => {
     const padre = item.comentarioPadreId as any;
     return padre === comentario._id;
   });
-
+ 
   const formatearFecha = (fecha?: string) => {
     if (!fecha) return "";
-
+ 
     return new Date(fecha).toLocaleDateString("es-AR", {
       day: "2-digit",
       month: "short",
@@ -73,29 +73,47 @@ export default function CommentThread({
       minute: "2-digit",
     });
   };
-
+ 
+  // Renderiza el texto del comentario resaltando cada @mención en violeta.
+  const renderContenido = (texto: string) => {
+    const partes = texto.split(/(@[a-zA-Z0-9_]+)/g);
+    return (
+      <Text style={styles.commentText}>
+        {partes.map((parte, index) =>
+          parte.startsWith("@") ? (
+            <Text key={index} style={styles.mention}>
+              {parte}
+            </Text>
+          ) : (
+            parte
+          )
+        )}
+      </Text>
+    );
+  };
+ 
   const guardarEdicion = () => {
     if (!textoEditado.trim()) {
       alert("El comentario no puede quedar vacío.");
       return;
     }
-
+ 
     onEditarComentario(comentario._id, textoEditado.trim());
     setEditando(false);
   };
-
+ 
   const cancelarEdicion = () => {
     setTextoEditado(comentario.contenido || "");
     setEditando(false);
   };
-
+ 
   return (
     <View style={[styles.threadContainer, depth > 0 && styles.replyThread]}>
       <View style={styles.avatarColumn}>
         <ProfileAvatarLink usuario={comentario.usuarioId} size={depth > 0 ? 32 : 40} />
         {respuestas.length > 0 && <View style={styles.threadLine} />}
       </View>
-
+ 
       <View style={styles.contentColumn}>
         <View style={styles.commentBubble}>
           <View style={styles.commentHeader}>
@@ -105,7 +123,7 @@ export default function CommentThread({
                   {usuarioComentario?.nombre || "Usuario eliminado"}
                 </Text>
               </ProfileTextLink>
-
+ 
               <ProfileTextLink usuario={comentario.usuarioId}>
                 <Text style={styles.commentMeta}>
                   @{usuarioComentario?.nombreUsuario || "usuario_eliminado"} ·{" "}
@@ -113,7 +131,7 @@ export default function CommentThread({
                 </Text>
               </ProfileTextLink>
             </View>
-
+ 
             {esMiComentario && !editando && (
               <View style={styles.commentActions}>
                 <TouchableOpacity
@@ -126,7 +144,7 @@ export default function CommentThread({
                 >
                   <Pencil size={14} color="#7528F0" />
                 </TouchableOpacity>
-
+ 
                 <TouchableOpacity
                   style={[styles.iconButton, styles.deleteButton]}
                   activeOpacity={0.85}
@@ -136,7 +154,7 @@ export default function CommentThread({
                 </TouchableOpacity>
               </View>
             )}
-
+ 
             {!esMiComentario && puedeAdministrar && !editando && (
               <View style={styles.commentActions}>
                 <TouchableOpacity
@@ -149,7 +167,7 @@ export default function CommentThread({
               </View>
             )}
           </View>
-
+ 
           {editando ? (
             <View style={styles.editCommentBox}>
               <TextInput
@@ -160,7 +178,7 @@ export default function CommentThread({
                 placeholder="Editar comentario..."
                 placeholderTextColor="#A7A7B0"
               />
-
+ 
               <View style={styles.editActions}>
                 <TouchableOpacity
                   style={styles.cancelEditButton}
@@ -170,7 +188,7 @@ export default function CommentThread({
                   <X size={14} color="#8D8A99" />
                   <Text style={styles.cancelEditText}>Cancelar</Text>
                 </TouchableOpacity>
-
+ 
                 <TouchableOpacity
                   style={styles.saveEditButton}
                   activeOpacity={0.85}
@@ -182,9 +200,9 @@ export default function CommentThread({
               </View>
             </View>
           ) : (
-            <Text style={styles.commentText}>{comentario.contenido}</Text>
+            renderContenido(comentario.contenido || "")
           )}
-
+ 
           {!editando && !!usuarioComentario && (
             <TouchableOpacity
               style={styles.replyButton}
@@ -198,7 +216,7 @@ export default function CommentThread({
             </TouchableOpacity>
           )}
         </View>
-
+ 
         {mostrarRespuesta && (
           <View style={styles.replyInputBox}>
             <TextInput
@@ -209,7 +227,7 @@ export default function CommentThread({
               onChangeText={(texto) => onChangeRespuesta(comentario._id, texto)}
               multiline
             />
-
+ 
             <TouchableOpacity
               style={[
                 styles.replySendButton,
@@ -227,7 +245,7 @@ export default function CommentThread({
             </TouchableOpacity>
           </View>
         )}
-
+ 
         {respuestas.length > 0 && (
           <View style={styles.repliesContainer}>
             {respuestas.map((respuesta) => (
@@ -251,7 +269,7 @@ export default function CommentThread({
     </View>
   );
 }
-
+ 
 const styles = StyleSheet.create({
   threadContainer: {
     flexDirection: "row",
@@ -321,6 +339,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#332047",
     lineHeight: 22,
+  },
+  mention: {
+    color: "#8B35E8",
+    fontWeight: "700",
   },
   replyButton: {
     flexDirection: "row",
@@ -418,3 +440,4 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 });
+ 
