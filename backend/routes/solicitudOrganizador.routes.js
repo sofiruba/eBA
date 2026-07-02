@@ -185,11 +185,9 @@ router.patch("/:id/estado", async (req, res) => {
 
     await solicitud.save();
 
-    if (estado === "aprobado") {
-      await Usuario.findByIdAndUpdate(solicitud.usuarioId, {
-        esOrganizador: true,
-      });
-    }
+   await Usuario.findByIdAndUpdate(solicitud.usuarioId, {
+  esOrganizador: estado === "aprobado",
+});
 
     return res.json({
       message:
