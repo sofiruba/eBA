@@ -312,6 +312,17 @@ router.post("/auth/google/token", async (req, res) => {
  
       await usuario.save();
     }
+
+    if (!esNuevo && estaSancionado(usuario)) {
+      return res.status(403).json({
+        error: `Tu cuenta está sancionada hasta el ${new Date(
+          usuario.sancionadoHasta
+        ).toLocaleString("es-AR")}.`,
+        codigo: "sancionado",
+        sancionadoHasta: usuario.sancionadoHasta,
+        motivoSancion: usuario.motivoSancion || "",
+      });
+    }
  
     return res.json({
       message: "Login con Google correcto",
@@ -537,6 +548,7 @@ router.post("/login", async (req, res) => {
     if (!usuario.emailVerificado) {
       return res.status(403).json({
         error: "Tenés que verificar tu email antes de iniciar sesión",
+        codigo: "email_no_verificado",
       });
     }
 
@@ -545,6 +557,7 @@ router.post("/login", async (req, res) => {
         error: `Tu cuenta está sancionada hasta el ${new Date(
           usuario.sancionadoHasta
         ).toLocaleString("es-AR")}.`,
+        codigo: "sancionado",
         sancionadoHasta: usuario.sancionadoHasta,
         motivoSancion: usuario.motivoSancion || "",
       });

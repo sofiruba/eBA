@@ -74,6 +74,13 @@ const handleLoginGoogle = async (token: string) => {
     });
     const data = await res.json();
     if (!res.ok) {
+      if (res.status === 403 && data.codigo === "sancionado") {
+        alert(
+          data.error ||
+          "Tu cuenta está sancionada temporalmente. Intentá más tarde."
+        );
+        return;
+      }
       alert(data.error || "Error al iniciar sesión con Google.");
       return;
     }
@@ -150,6 +157,14 @@ const handleLoginGoogle = async (token: string) => {
       console.log("Respuesta login:", data);
 
       if (response.status === 403) {
+        if (data.codigo === "sancionado") {
+          alert(
+            data.error ||
+            "Tu cuenta está sancionada temporalmente. Intentá más tarde."
+          );
+          return;
+        }
+
         alert(
           data.error ||
           "Tenés que verificar tu email antes de iniciar sesión."
