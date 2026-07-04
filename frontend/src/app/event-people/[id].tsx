@@ -7,6 +7,8 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Platform,
+  useWindowDimensions,
 } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
@@ -66,6 +68,8 @@ type SolicitudConexion = {
 
 export default function EventPeopleScreen() {
   const { id, returnToHome } = useLocalSearchParams();
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= 900;
 
   const [evento, setEvento] = useState<Evento | null>(null);
   const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
@@ -906,16 +910,22 @@ export default function EventPeopleScreen() {
     <View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[
+          styles.container,
+          isDesktopWeb && styles.webContainer,
+        ]}
       >
-        <TouchableOpacity style={styles.backButton} onPress={volver}>
+        <TouchableOpacity
+          style={[styles.backButton, isDesktopWeb && styles.webBackButton]}
+          onPress={volver}
+        >
           <ArrowLeft size={22} color="#332047" />
         </TouchableOpacity>
 
-        <View style={styles.headerCard}>
+        <View style={[styles.headerCard, isDesktopWeb && styles.webHeaderCard]}>
           <Image
             source={{ uri: obtenerImagen(evento.imagen) }}
-            style={styles.eventImage}
+            style={[styles.eventImage, isDesktopWeb && styles.webEventImage]}
           />
 
           <View style={styles.headerInfo}>
@@ -954,8 +964,8 @@ export default function EventPeopleScreen() {
           </View>
         </View>
 
-        <View style={styles.quickActions}>
-          <View style={styles.quickActionCard}>
+        <View style={[styles.quickActions, isDesktopWeb && styles.webQuickActions]}>
+          <View style={[styles.quickActionCard, isDesktopWeb && styles.webQuickActionCard]}>
             <Users size={20} color="#6D28E8" />
             <Text style={styles.quickActionNumber}>
               {asistenciasFiltradas.length}
@@ -963,14 +973,17 @@ export default function EventPeopleScreen() {
             <Text style={styles.quickActionLabel}>van</Text>
           </View>
 
-          <View style={styles.quickActionCard}>
+          <View style={[styles.quickActionCard, isDesktopWeb && styles.webQuickActionCard]}>
             <MessageCircle size={20} color="#6D28E8" />
             <Text style={styles.quickActionNumber}>{publicaciones.length}</Text>
             <Text style={styles.quickActionLabel}>posts</Text>
           </View>
 
           <TouchableOpacity
-            style={styles.quickActionCard}
+            style={[
+              styles.quickActionCard,
+              isDesktopWeb && styles.webQuickActionCard,
+            ]}
             activeOpacity={0.85}
             onPress={abrirChatGrupalEvento}  
           >
@@ -980,7 +993,7 @@ export default function EventPeopleScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.tabsCard}>
+        <View style={[styles.tabsCard, isDesktopWeb && styles.webTabsCard]}>
           <TouchableOpacity
             style={[styles.tab, tabActiva === "personas" && styles.tabActive]}
             onPress={() => setTabActiva("personas")}
@@ -1022,7 +1035,7 @@ export default function EventPeopleScreen() {
         </View>
 
         {tabActiva === "personas" && (
-          <View style={styles.peopleList}>
+          <View style={[styles.peopleList, isDesktopWeb && styles.webPeopleList]}>
             <View style={styles.peopleSectionHeader}>
               <View>
                 <Text style={styles.peopleSectionTitle}>Personas que van</Text>
@@ -1072,6 +1085,7 @@ export default function EventPeopleScreen() {
               />
             ) : (
               <>
+              <View>
               {personasVisibles.map((asistencia) => {
                 const usuario = asistencia.usuarioId;
                 const receptorId = obtenerUsuarioId(usuario);
@@ -1080,7 +1094,10 @@ export default function EventPeopleScreen() {
                 const conexion = obtenerConexionConUsuario(receptorId);
                 const intereses = usuario?.intereses?.slice(0, 3) || [];
                 return (
-                  <View key={asistencia._id} style={styles.personCard}>
+                  <View
+                    key={asistencia._id}
+                    style={[styles.personCard, isDesktopWeb && styles.webPersonCard]}
+                  >
                     <View style={styles.personAvatarWrap}>
                       <ProfileAvatarLink usuario={usuario} size={48} />
                     </View>
@@ -1140,6 +1157,7 @@ export default function EventPeopleScreen() {
                   </View>
                 );
               })}
+              </View>
 
               {personasOrdenadas.length > limitePersonas && (
                 <TouchableOpacity
@@ -1296,6 +1314,14 @@ const styles = StyleSheet.create({
     paddingTop: 58,
     paddingBottom: 140,
   },
+  webContainer: {
+    width: "100%",
+    maxWidth: 940,
+    alignSelf: "center",
+    paddingHorizontal: 28,
+    paddingTop: 34,
+    paddingBottom: 56,
+  },
   backButton: {
     width: 38,
     height: 38,
@@ -1303,6 +1329,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,
+  },
+  webBackButton: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E8E2F8",
   },
   headerCard: {
     flexDirection: "row",
@@ -1313,11 +1344,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E8E2F8",
   },
+  webHeaderCard: {
+    padding: 14,
+    borderRadius: 22,
+    marginBottom: 14,
+  },
   eventImage: {
     width: 104,
     height: 96,
     borderRadius: 18,
     marginRight: 18,
+  },
+  webEventImage: {
+    width: 132,
+    height: 108,
   },
   headerInfo: {
     flex: 1,
@@ -1383,6 +1423,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginBottom: 18,
   },
+  webQuickActions: {
+    gap: 10,
+    marginBottom: 14,
+  },
   quickActionCard: {
     flex: 1,
     minHeight: 76,
@@ -1393,6 +1437,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
+  },
+  webQuickActionCard: {
+    minHeight: 64,
+    marginRight: 0,
+    borderRadius: 16,
   },
   quickActionNumber: {
     marginTop: 5,
@@ -1414,6 +1463,9 @@ const styles = StyleSheet.create({
     padding: 4,
     marginBottom: 28,
   },
+  webTabsCard: {
+    marginBottom: 18,
+  },
   tab: {
     flex: 1,
     borderRadius: 8,
@@ -1434,6 +1486,13 @@ const styles = StyleSheet.create({
 
   peopleList: {
     paddingBottom: 20,
+  },
+  webPeopleList: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#E8E2F8",
+    padding: 16,
   },
   peopleSectionHeader: {
     flexDirection: "row",
@@ -1509,6 +1568,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 10,
     elevation: 1,
+  },
+  webPersonCard: {
+    minHeight: 88,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    borderRadius: 18,
   },
   personAvatarWrap: {
     alignSelf: "flex-start",

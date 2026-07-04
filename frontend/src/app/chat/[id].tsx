@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
   },
   webScreen: {
     width: "100%",
-    maxWidth: 860,
+    maxWidth: 780,
     height: "100vh" as any,
     alignSelf: "center",
     backgroundColor: "#F7F5FF",

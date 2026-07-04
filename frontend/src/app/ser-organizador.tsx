@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   webCard: {
-    maxWidth: 680,
+    maxWidth: 620,
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
     borderWidth: 1,

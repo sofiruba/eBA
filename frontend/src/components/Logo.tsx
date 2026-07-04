@@ -32,7 +32,7 @@ export default function Logo({
           height: logoSize,
           marginRight: showText ? 10 : 0,
         }}
-        showText="contain"
+        resizeMode="contain"
       />
 
       {showText && (

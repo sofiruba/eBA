@@ -99,15 +99,18 @@ export default function RootLayout() {
         isDesktopWeb && shouldUseAppFrame && styles.webAppFrame,
       ]}
     >
-      {isDesktopWeb && shouldUseAppFrame && <DesktopNav />}
-      <View
-        style={[
-          styles.stackShell,
-          isDesktopWeb && shouldUseAppFrame && styles.webStackShell,
-        ]}
-      >
-        <Stack screenOptions={{ headerShown: false }} />
-      </View>
+      {isDesktopWeb && shouldUseAppFrame ? (
+        <View style={styles.webShell}>
+          <DesktopNav />
+          <View style={[styles.stackShell, styles.webStackShell]}>
+            <Stack screenOptions={{ headerShown: false }} />
+          </View>
+        </View>
+      ) : (
+        <View style={styles.stackShell}>
+          <Stack screenOptions={{ headerShown: false }} />
+        </View>
+      )}
       <InAppNotificationToast />
     </View>
   );
@@ -121,13 +124,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   webAppFrame: {
-    marginLeft: 252,
     minHeight: "100vh" as any,
     backgroundColor: "#F7F5FF",
+    alignItems: "center",
   },
-  webStackShell: {
+  webShell: {
     width: "100%",
     maxWidth: 1180,
-    alignSelf: "center",
+    minHeight: "100vh" as any,
+    flexDirection: "row",
+    alignItems: "stretch",
+    justifyContent: "center",
+    gap: 18,
+    paddingHorizontal: 28,
+  },
+  webStackShell: {
+    flex: 1,
+    maxWidth: 900,
+    minHeight: "100vh" as any,
   },
 });
